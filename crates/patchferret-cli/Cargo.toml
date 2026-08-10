@@ -1,0 +1,17 @@
+[package]
+name = "patchferret-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "PatchFerret command line tool — the local option"
+
+[[bin]]
+name = "patchferret"
+path = "src/main.rs"
+
+[dependencies]
+patchferret-model = { workspace = true }
+patchferret-formats = { workspace = true }
+patchferret-report = { workspace = true }

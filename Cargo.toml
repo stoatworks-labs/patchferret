@@ -1,0 +1,30 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/patchferret-model",
+    "crates/patchferret-formats",
+    "crates/patchferret-report",
+    "crates/patchferret-cli",
+    "crates/patchferret-wasm",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+license = "MIT"
+repository = "https://github.com/stoatworks-labs/patchferret"
+
+[workspace.dependencies]
+patchferret-model = { path = "crates/patchferret-model" }
+patchferret-formats = { path = "crates/patchferret-formats" }
+patchferret-report = { path = "crates/patchferret-report" }
+
+quick-xml = "0.36"
+thiserror = "1"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"

@@ -1,0 +1,12 @@
+[package]
+name = "patchferret-formats"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Show file format adapters — native console formats in, PFX out"
+
+[dependencies]
+patchferret-model = { workspace = true }
+thiserror = { workspace = true }

@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PatchFerret — console show file documentation</title>
+<style>
+  :root {
+    --bg: #fbfbfc; --panel: #fff; --ink: #1e2126; --muted: #6b7280;
+    --rule: #e3e6ea; --accent: #1c6099; --warn: #b26b0d; --alert: #ae3030;
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14161a; --panel: #1c1f24; --ink: #e8eaed; --muted: #9aa1ab;
+      --rule: #2c3037; --accent: #6aa9e0; --warn: #d99a3f; --alert: #e07a7a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 40px 20px 80px; }
+  header h1 { margin: 0 0 6px; font-size: 28px; letter-spacing: -0.02em; }
+  header p { margin: 0 0 4px; color: var(--muted); }
+  .privacy {
+    display: inline-block; margin-top: 14px; padding: 6px 11px;
+    border: 1px solid var(--rule); border-radius: 999px;
+    font-size: 13px; color: var(--muted); background: var(--panel);
+  }
+  #drop {
+    margin: 28px 0; padding: 44px 24px; text-align: center;
+    border: 2px dashed var(--rule); border-radius: var(--radius);
+    background: var(--panel); cursor: pointer; transition: border-color .15s, background .15s;
+  }
+  #drop:hover, #drop.over { border-color: var(--accent); }
+  #drop.over { background: color-mix(in srgb, var(--accent) 8%, var(--panel)); }
+  #drop strong { display: block; font-size: 17px; margin-bottom: 6px; }
+  #drop span { color: var(--muted); font-size: 14px; }
+  input[type=file] { display: none; }
+  .panel {
+    background: var(--panel); border: 1px solid var(--rule);
+    border-radius: var(--radius); padding: 20px 22px; margin-bottom: 20px;
+  }
+  .panel h2 { margin: 0 0 14px; font-size: 15px; letter-spacing: .02em; text-transform: uppercase; color: var(--muted); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 14px; }
+  .ident { margin-bottom: 18px; padding-bottom: 16px; border-bottom: 1px solid var(--rule); }
+  .ident b { display: block; font-size: 19px; letter-spacing: -0.01em; }
+  .ident span { color: var(--muted); font-size: 13.5px; }
+  .stat b { display: block; font-size: 22px; font-variant-numeric: tabular-nums; }
+  .stat span { color: var(--muted); font-size: 12.5px; }
+  .files { display: flex; flex-direction: column; gap: 9px; }
+  .file {
+    display: flex; align-items: center; gap: 12px; padding: 11px 13px;
+    border: 1px solid var(--rule); border-radius: 8px;
+  }
+  .file .nm { flex: 1; font-size: 14px; word-break: break-all; }
+  .file .sz { color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+  button {
+    font: inherit; font-size: 13.5px; padding: 6px 13px; border-radius: 7px;
+    border: 1px solid var(--rule); background: transparent; color: var(--ink); cursor: pointer;
+  }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button:hover { border-color: var(--accent); }
+  .diag { border-left: 3px solid var(--warn); padding: 8px 0 8px 12px; margin-bottom: 12px; }
+  .diag.suspect, .diag.unknown { border-left-color: var(--alert); }
+  .diag .tag { font-size: 11px; font-weight: 700; letter-spacing: .06em; color: var(--warn); }
+  .diag.suspect .tag, .diag.unknown .tag { color: var(--alert); }
+  .diag code { color: var(--muted); font-size: 12px; }
+  .diag p { margin: 3px 0 0; font-size: 13.5px; }
+  #error { border-left: 3px solid var(--alert); padding-left: 14px; color: var(--alert); }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--rule); }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; }
+  .hidden { display: none; }
+  footer { margin-top: 40px; color: var(--muted); font-size: 13px; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>PatchFerret</h1>
+    <p>Turn a mixing console show file into a patch list, a specification sheet and a wiring topology diagram.</p>
+    <div class="privacy">Your show file never leaves this browser — parsing and PDF generation run locally in WebAssembly.</div>
+  </header>
+
+  <div id="drop" tabindex="0" role="button" aria-label="Choose a show file">
+    <strong>Drop a show file here</strong>
+    <span id="dropHint">or click to choose &middot; loading core…</span>
+    <input type="file" id="picker">
+  </div>
+
+  <div id="error" class="panel hidden"></div>
+
+  <div id="results" class="hidden">
+    <div class="panel">
+      <h2>Show</h2>
+      <div id="ident"></div>
+      <div class="grid" id="stats"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Documentation</h2>
+      <div class="files" id="files"></div>
+    </div>
+
+    <div class="panel" id="fidelityPanel">
+      <h2>Conversion fidelity</h2>
+      <div id="fidelity"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Supported formats</h2>
+    <table>
+      <thead><tr><th>Console</th><th>File</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td>Behringer X32 / Midas M32 / X-Air</td><td><code>.scn</code></td><td>Supported</td></tr>
+        <tr><td>Yamaha DM7, CL/QL</td><td>—</td><td>Planned</td></tr>
+        <tr><td>Allen &amp; Heath SQ, dLive, Avantis</td><td>—</td><td>Planned</td></tr>
+        <tr><td>DiGiCo, Avid VENUE</td><td>—</td><td>Planned</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <footer>
+    PatchFerret reads the show file as saved. Gains, patching and mutes reflect the stored
+    scene, not a console's live state.
+  </footer>
+</div>
+
+<script type="module">
+import { init, process, download, KIND } from './patchferret.js';
+
+const drop = document.getElementById('drop');
+const picker = document.getElementById('picker');
+const hint = document.getElementById('dropHint');
+const errorBox = document.getElementById('error');
+const results = document.getElementById('results');
+
+let ready = false;
+
+init().then(() => {
+  ready = true;
+  hint.textContent = 'or click to choose';
+}).catch(e => {
+  hint.textContent = 'core failed to load';
+  showError(`Could not load the PatchFerret core: ${e.message}`);
+});
+
+function showError(message) {
+  errorBox.textContent = message;
+  errorBox.classList.remove('hidden');
+  results.classList.add('hidden');
+}
+
+function bytes(n) {
+  return n < 1024 ? `${n} B`
+    : n < 1024 * 1024 ? `${(n / 1024).toFixed(1)} kB`
+    : `${(n / 1048576).toFixed(1)} MB`;
+}
+
+function render(result) {
+  if (result.error) { showError(result.error); return; }
+  errorBox.classList.add('hidden');
+  results.classList.remove('hidden');
+
+  const s = result.summary;
+  // Names go on their own line; the grid is for figures, which look wrong
+  // when a long console name is forced into a tile sized for a number.
+  document.getElementById('ident').innerHTML =
+    `<div class="ident">
+       <b>${escapeHtml(s.name || '(unnamed show)')}</b>
+       <span>${escapeHtml(s.console)}${s.version ? ' &middot; v' + escapeHtml(s.version) : ''}</span>
+     </div>`;
+
+  document.getElementById('stats').innerHTML = [
+    ['Input slots', s.slots],
+    ['Reaching a channel', s.reaching],
+    ['Strips', s.strips],
+    ['Outputs', s.outputs],
+    ['Preamps', s.headAmps],
+  ].map(([label, value]) =>
+    `<div class="stat"><b>${escapeHtml(String(value))}</b><span>${label}</span></div>`
+  ).join('');
+
+  document.getElementById('files').innerHTML = result.files.map((f, i) =>
+    `<div class="file">
+       <span class="nm">${escapeHtml(f.name)}</span>
+       <span class="sz">${bytes(f.bytes.length)}</span>
+       <button class="primary" data-dl="${i}">Download</button>
+     </div>`
+  ).join('');
+
+  document.querySelectorAll('[data-dl]').forEach(b => {
+    b.addEventListener('click', () => download(result.files[Number(b.dataset.dl)]));
+  });
+
+  const panel = document.getElementById('fidelityPanel');
+  const list = document.getElementById('fidelity');
+  if (!s.diagnostics.length) {
+    list.innerHTML = '<p>Everything recognised in this show file is represented in the model.</p>';
+  } else {
+    list.innerHTML = s.diagnostics.map(d =>
+      `<div class="diag ${escapeHtml(d.severity)}">
+         <span class="tag">${escapeHtml(d.severity.toUpperCase())}</span>
+         <code>${escapeHtml(d.locus)}</code>
+         <p>${escapeHtml(d.message)}</p>
+       </div>`
+    ).join('');
+  }
+  panel.classList.remove('hidden');
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+async function handle(file) {
+  if (!ready) { showError('The core is still loading — try again in a moment.'); return; }
+  try {
+    const buf = new Uint8Array(await file.arrayBuffer());
+    render(process(file.name, buf));
+  } catch (e) {
+    showError(`Could not read that file: ${e.message}`);
+  }
+}
+
+drop.addEventListener('click', () => picker.click());
+drop.addEventListener('keydown', e => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); picker.click(); }
+});
+picker.addEventListener('change', () => { if (picker.files[0]) handle(picker.files[0]); });
+
+['dragenter', 'dragover'].forEach(ev =>
+  drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave', 'drop'].forEach(ev =>
+  drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', e => {
+  const f = e.dataTransfer?.files?.[0];
+  if (f) handle(f);
+});
+</script>
+</body>
+</html>

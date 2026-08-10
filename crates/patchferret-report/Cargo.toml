@@ -1,0 +1,11 @@
+[package]
+name = "patchferret-report"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "PDF documentation generated from the PFX model"
+
+[dependencies]
+patchferret-model = { workspace = true }

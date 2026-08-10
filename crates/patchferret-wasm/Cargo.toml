@@ -1,0 +1,16 @@
+[package]
+name = "patchferret-wasm"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "WASM entry point for the browser build"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+patchferret-model = { workspace = true }
+patchferret-formats = { workspace = true }
+patchferret-report = { workspace = true }
