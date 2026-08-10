@@ -56,6 +56,36 @@ cargo build --release
 `info` prints a summary and, importantly, the **fidelity list** — everything the adapter read
 but could not carry into the model, and which would therefore be lost in a conversion.
 
+### The report header
+
+Reports carry a header with your logo, the event, venue, engineer and so on. **None of that is
+in a show file** — a console stores a mixer state, not the job it was built for — so it comes
+from a job sheet you supply:
+
+```bash
+patchferret job-template -o job.txt   # a starting point
+patchferret report myshow.scn -j job.txt -o ./docs
+```
+
+The sheet is `key: value` lines, and **any key it does not recognise becomes an extra header
+field**, so "Truck call" or "Rider rev" work without the tool knowing about them:
+
+```
+Event: Summer Live 2026
+Date: 12-14 September
+Artist: The Something Band
+Venue: Old Granada Studios
+Engineer: A. Sargeant
+Contact: 07700 900000
+Truck call: 06:00
+logo: ./logo.jpg
+```
+
+The browser version has the same fields as a form, and accepts **any image** for the logo —
+it converts on a canvas before handing the bytes over. The CLI takes JPEG, or PNG without
+transparency; embedding a transparent PNG would mean decoding pixels, which the dependency-free
+PDF writer deliberately does not do. It says so rather than dropping the logo silently.
+
 ### Browser
 
 ```bash

@@ -13,7 +13,9 @@
 
 use patchferret_model::*;
 
-use crate::layout::{footer, header, MARGIN};
+use crate::image::Image;
+
+use crate::layout::{cover_header, footer, MARGIN};
 use crate::pdf::{Document, Font, Page, Rgb, A4L_HEIGHT, A4L_WIDTH};
 
 /// One device's contribution to the patch, ready to draw.
@@ -165,10 +167,10 @@ fn draw_node(page: &mut Page, x: f32, y: f32, node: &Node, accent: Rgb) {
     );
 }
 
-pub fn build(show: &Show) -> Vec<u8> {
+pub fn build(show: &Show, job: &JobInfo, logo: Option<&Image>) -> Vec<u8> {
     let mut doc = Document::new(format!("Wiring topology — {}", show.meta.name));
     let mut page = Page::new(A4L_WIDTH, A4L_HEIGHT);
-    let y0 = header(&mut page, show, "Wiring topology");
+    let y0 = cover_header(&mut page, show, job, logo, "Wiring topology");
 
     let ins = input_nodes(show);
     let outs = output_nodes(show);
@@ -284,7 +286,7 @@ mod tests {
 
     #[test]
     fn produces_a_valid_pdf_even_with_no_io() {
-        let pdf = build(&Show::default());
+        let pdf = build(&Show::default(), &JobInfo::default(), None);
         assert!(pdf.starts_with(b"%PDF-1.4"));
         let s = String::from_utf8_lossy(&pdf);
         assert!(s.contains("No routed I/O found"));

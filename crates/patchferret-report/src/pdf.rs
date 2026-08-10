@@ -185,11 +185,35 @@ pub struct Page {
     width: f32,
     height: f32,
     ops: String,
+    /// Image XObjects this page draws, by resource index.
+    images: Vec<crate::image::Image>,
 }
 
 impl Page {
     pub fn new(width: f32, height: f32) -> Self {
-        Self { width, height, ops: String::new() }
+        Self { width, height, ops: String::new(), images: Vec::new() }
+    }
+
+    /// Draw an image with its top-left at (x, y), scaled to `w` x `h`.
+    ///
+    /// PDF draws images into the unit square, so the CTM does the placing:
+    /// scale to the target size, translate to the corner. `q`/`Q` keep that
+    /// transform from leaking into everything drawn afterwards — without them
+    /// every later coordinate on the page would be multiplied by the image
+    /// size, which looks like the page "exploding" rather than like a bug here.
+    pub fn image(
+        &mut self,
+        img: &crate::image::Image,
+        x: f32,
+        y: f32,
+        w: f32,
+        h: f32,
+    ) -> &mut Self {
+        let idx = self.images.len();
+        self.images.push(img.clone());
+        let bottom = self.flip(y + h);
+        let _ = writeln!(self.ops, "q {w:.2} 0 0 {h:.2} {x:.2} {bottom:.2} cm /Im{idx} Do Q");
+        self
     }
 
     pub fn width(&self) -> f32 {
@@ -378,26 +402,32 @@ impl Document {
         let first_page_obj = 6;
         let n_pages = self.pages.len().max(1);
 
-        let mut objects: Vec<String> = Vec::new();
+        // Objects are byte vectors, not strings: an image XObject's stream is
+        // arbitrary binary (JPEG/Flate), and routing it through a String would
+        // replace every byte above 0x7F.
+        let mut objects: Vec<Vec<u8>> = Vec::new();
+        fn latin1(s: &str) -> Vec<u8> {
+            s.chars().map(|c| if (c as u32) < 256 { c as u8 } else { b'?' }).collect()
+        }
 
         let kids: Vec<String> =
             (0..n_pages).map(|i| format!("{} 0 R", first_page_obj + i * 2)).collect();
 
-        objects.push("<< /Type /Catalog /Pages 2 0 R >>".into());
-        objects.push(format!(
+        objects.push(latin1("<< /Type /Catalog /Pages 2 0 R >>"));
+        objects.push(latin1(&format!(
             "<< /Type /Pages /Count {} /Kids [{}] >>",
             n_pages,
             kids.join(" ")
-        ));
+        )));
         for f in [Font::Regular, Font::Bold, Font::Mono] {
-            objects.push(format!(
+            objects.push(latin1(&format!(
                 "<< /Type /Font /Subtype /Type1 /BaseFont /{} /Encoding /WinAnsiEncoding >>",
                 f.base_font()
-            ));
+            )));
         }
 
-        let resources = format!(
-            "<< /Font << /F1 {} 0 R /F2 {} 0 R /F3 {} 0 R >> >>",
+        let font_res = format!(
+            "/Font << /F1 {} 0 R /F2 {} 0 R /F3 {} 0 R >>",
             font_ids[0], font_ids[1], font_ids[2]
         );
 
@@ -407,26 +437,67 @@ impl Document {
             self.pages
         };
 
+        // Image XObjects are appended after all page objects, so their numbers
+        // have to be reserved up front — a page's Resources dictionary must
+        // name them before they are written.
+        let images_start = first_page_obj + pages.len() * 2;
+        let mut image_obj = images_start;
+        let mut image_streams: Vec<(usize, &crate::image::Image)> = Vec::new();
+
         for (i, page) in pages.iter().enumerate() {
             let content_obj = first_page_obj + i * 2 + 1;
-            objects.push(format!(
-                "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {:.3} {:.3}] /Resources {} \
-                 /Contents {} 0 R >>",
-                page.width, page.height, resources, content_obj
-            ));
-            objects.push(format!(
+            let xobjects = if page.images.is_empty() {
+                String::new()
+            } else {
+                let mut entries = Vec::new();
+                for img in &page.images {
+                    entries.push(format!("/Im{} {} 0 R", entries.len(), image_obj));
+                    image_streams.push((image_obj, img));
+                    image_obj += 1;
+                }
+                format!(" /XObject << {} >>", entries.join(" "))
+            };
+            objects.push(latin1(&format!(
+                "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {:.3} {:.3}] \
+                 /Resources << {font_res}{xobjects} >> /Contents {} 0 R >>",
+                page.width, page.height, content_obj
+            )));
+            objects.push(latin1(&format!(
                 "<< /Length {} >>\nstream\n{}\nendstream",
                 page.ops.len(),
                 page.ops
+            )));
+        }
+
+        // Image XObjects, in the order their numbers were reserved above.
+        for (_, img) in &image_streams {
+            let parms = img
+                .decode_parms
+                .as_ref()
+                .map(|p| format!(" /DecodeParms {p}"))
+                .unwrap_or_default();
+            let mut obj = latin1(&format!(
+                "<< /Type /XObject /Subtype /Image /Width {} /Height {} /ColorSpace {} \
+                 /BitsPerComponent {} /Filter {}{} /Length {} >>\nstream\n",
+                img.width,
+                img.height,
+                img.colour_space,
+                img.bits_per_component,
+                img.filter,
+                parms,
+                img.data.len()
             ));
+            obj.extend_from_slice(&img.data);
+            obj.extend_from_slice(b"\nendstream");
+            objects.push(obj);
         }
 
         // Info object, last.
         let info_obj = objects.len() + 1;
-        objects.push(format!(
+        objects.push(latin1(&format!(
             "<< /Title ({}) /Producer (PatchFerret) /Creator (PatchFerret) >>",
             escape(&self.title)
-        ));
+        )));
 
         // Assembled as bytes, not as a String. Offsets in the xref table are
         // byte offsets into the finished file, so building in UTF-8 and
@@ -444,7 +515,9 @@ impl Document {
         let mut offsets = Vec::with_capacity(objects.len());
         for (i, body) in objects.iter().enumerate() {
             offsets.push(out.len());
-            push(&mut out, &format!("{} 0 obj\n{}\nendobj\n", i + 1, body));
+            push(&mut out, &format!("{} 0 obj\n", i + 1));
+            out.extend_from_slice(body);
+            push(&mut out, "\nendobj\n");
         }
 
         let xref_at = out.len();

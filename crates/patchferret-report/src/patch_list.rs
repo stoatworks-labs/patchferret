@@ -6,6 +6,8 @@
 
 use patchferret_model::*;
 
+use crate::image::Image;
+
 use crate::layout::*;
 use crate::pdf::{Document, Page, Rgb, A4L_HEIGHT, A4L_WIDTH};
 
@@ -47,7 +49,7 @@ fn device_label(show: &Show, id: &str) -> String {
 }
 
 /// Build the patch list PDF.
-pub fn build(show: &Show) -> Vec<u8> {
+pub fn build(show: &Show, job: &JobInfo, logo: Option<&Image>) -> Vec<u8> {
     let mut doc = Document::new(format!("Patch list — {}", show.meta.name));
     let cols = input_cols();
     let table_w: f32 = cols.iter().map(|c| c.width).sum();
@@ -57,7 +59,7 @@ pub fn build(show: &Show) -> Vec<u8> {
     let rows = show.patched_inputs();
     let mut page_no = 1;
     let mut page = Page::new(A4L_WIDTH, A4L_HEIGHT);
-    let mut y = header(&mut page, show, "Input patch");
+    let mut y = cover_header(&mut page, show, job, logo, "Input patch");
     y = table_header(&mut page, x0, y, &cols, 14.0);
     let mut zebra = false;
 
@@ -125,7 +127,7 @@ pub fn build(show: &Show) -> Vec<u8> {
 
         page_no += 1;
         let mut page = Page::new(A4L_WIDTH, A4L_HEIGHT);
-        let mut y = header(&mut page, show, "Output patch");
+        let mut y = cover_header(&mut page, show, job, logo, "Output patch");
         y = table_header(&mut page, ox0, y, &ocols, 14.0);
         let mut zebra = false;
 
@@ -235,15 +237,15 @@ mod tests {
 
     #[test]
     fn produces_a_valid_pdf() {
-        let pdf = build(&show_with(8));
+        let pdf = build(&show_with(8), &JobInfo::default(), None);
         assert!(pdf.starts_with(b"%PDF-1.4"));
         assert!(pdf.ends_with(b"%%EOF\n"));
     }
 
     #[test]
     fn paginates_when_rows_exceed_a_page() {
-        let one = build(&show_with(8));
-        let many = build(&show_with(200));
+        let one = build(&show_with(8), &JobInfo::default(), None);
+        let many = build(&show_with(200), &JobInfo::default(), None);
         assert!(many.len() > one.len());
         let s = String::from_utf8_lossy(&many).into_owned();
         let count: usize = s
@@ -257,7 +259,7 @@ mod tests {
 
     #[test]
     fn empty_show_still_produces_a_pdf() {
-        let pdf = build(&Show::default());
+        let pdf = build(&Show::default(), &JobInfo::default(), None);
         assert!(pdf.starts_with(b"%PDF-1.4"));
     }
 
@@ -270,7 +272,7 @@ mod tests {
             socket: Some(SocketRef::new("local", Direction::In, 3)),
             strip: None,
         });
-        let pdf = build(&show);
+        let pdf = build(&show, &JobInfo::default(), None);
         let s = String::from_utf8_lossy(&pdf);
         assert!(s.contains("not patched"));
     }

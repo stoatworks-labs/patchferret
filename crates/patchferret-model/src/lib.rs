@@ -11,11 +11,13 @@
 //! one we can claim to have fully understood; anything else is honest about the
 //! gap. See `docs/01-model.md`.
 
+pub mod job;
 pub mod profile;
 pub mod xml;
 
 use std::fmt;
 
+pub use job::{JobInfo, Logo};
 pub use profile::{ConsoleProfile, DeviceSpec};
 
 /// Signal direction, from the console's point of view.

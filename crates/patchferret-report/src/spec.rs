@@ -7,6 +7,8 @@
 
 use patchferret_model::*;
 
+use crate::image::Image;
+
 use crate::layout::*;
 use crate::pdf::{Document, Font, Page, Rgb, A4_HEIGHT, A4_WIDTH};
 
@@ -18,11 +20,11 @@ fn named_count(show: &Show, kind: StripKind) -> usize {
     show.strips_of(kind).filter(|s| !s.name.trim().is_empty()).count()
 }
 
-pub fn build(show: &Show) -> Vec<u8> {
+pub fn build(show: &Show, job: &JobInfo, logo: Option<&Image>) -> Vec<u8> {
     let mut doc = Document::new(format!("Show file spec — {}", show.meta.name));
     let mut page = Page::new(A4_WIDTH, A4_HEIGHT);
     let mut page_no = 1;
-    let mut y = header(&mut page, show, "Show file specification");
+    let mut y = cover_header(&mut page, show, job, logo, "Show file specification");
     let x = MARGIN;
     let usable_bottom = A4_HEIGHT - FOOTER_H - 8.0;
 
@@ -231,7 +233,7 @@ mod tests {
 
     #[test]
     fn produces_a_valid_pdf_for_an_empty_show() {
-        let pdf = build(&Show::default());
+        let pdf = build(&Show::default(), &JobInfo::default(), None);
         assert!(pdf.starts_with(b"%PDF-1.4"));
         assert!(pdf.ends_with(b"%%EOF\n"));
     }
@@ -263,7 +265,7 @@ mod tests {
                     .into(),
             });
         }
-        let pdf = build(&show);
+        let pdf = build(&show, &JobInfo::default(), None);
         let s = String::from_utf8_lossy(&pdf).into_owned();
         let count: usize = s
             .split("/Count ")

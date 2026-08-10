@@ -8,8 +8,8 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use patchferret_formats::{adapters, detect, ShowFile, ShowInput};
-use patchferret_model::xml;
-use patchferret_report::build_all;
+use patchferret_model::{xml, JobInfo, Logo};
+use patchferret_report::build_all_with;
 
 const USAGE: &str = "\
 PatchFerret — console show file documentation
@@ -19,13 +19,52 @@ USAGE:
     patchferret xml     <show> [-o FILE]  Convert to PFX interchange XML
     patchferret report  <show> [-o DIR]   Write patch list, spec and topology PDFs
     patchferret formats                   List supported formats
+    patchferret job-template [-o FILE]    Write a blank job sheet to fill in
 
 ARGS:
     <show>    A show file, or a directory holding one
 
 OPTIONS:
     -o, --out    Output file (xml) or directory (report). Default: alongside input
+    -j, --job    Job sheet supplying the report header (see job-template)
     -h, --help   Show this message
+
+The job sheet is `key: value` lines. Unknown keys become extra header fields,
+so you can add your own without the tool knowing about them:
+
+    Event: Summer Live 2026
+    Date: 12-14 Sept
+    Artist: The Something Band
+    Venue: Old Granada Studios
+    Production: Stoatworks
+    Engineer: A. Sargeant
+    Contact: 07700 900000
+    Truck call: 0600
+    logo: ./logo.jpg
+";
+
+/// Starting point written by `job-template`.
+const JOB_TEMPLATE: &str = "\
+# PatchFerret job sheet. Lines are `key: value`; # comments are ignored.
+# Anything the tool does not recognise becomes an extra header field.
+
+Event:
+Date:
+Artist:
+Venue:
+Production:
+Engineer:
+Contact:
+
+# Override what the show file reports, if it is wrong or you want it shorter:
+# Console:
+# Firmware:
+
+# A line of free text under the header grid:
+# Notes:
+
+# JPEG, or PNG without transparency. The browser version accepts any image.
+# logo: ./logo.jpg
 ";
 
 fn main() -> ExitCode {
@@ -50,6 +89,18 @@ fn run(args: &[String]) -> Result<(), String> {
         return Ok(());
     }
 
+    if cmd == "job-template" {
+        match flag(args, "-o", "--out") {
+            Some(path) => {
+                std::fs::write(&path, JOB_TEMPLATE)
+                    .map_err(|e| format!("writing {path}: {e}"))?;
+                eprintln!("wrote {path}");
+            }
+            None => print!("{JOB_TEMPLATE}"),
+        }
+        return Ok(());
+    }
+
     if cmd == "formats" {
         println!("{:<8}  {:<40}  EXTENSIONS", "ID", "FORMAT");
         for a in adapters() {
@@ -60,6 +111,7 @@ fn run(args: &[String]) -> Result<(), String> {
 
     let path = args.get(1).ok_or_else(|| format!("'{cmd}' needs a show file\n\n{USAGE}"))?;
     let out = flag(args, "-o", "--out");
+    let job = load_job(flag(args, "-j", "--job").as_deref())?;
 
     let input = load(Path::new(path))?;
     let (adapter, confidence) =
@@ -118,7 +170,11 @@ fn run(args: &[String]) -> Result<(), String> {
             });
             std::fs::create_dir_all(&dir)
                 .map_err(|e| format!("creating {}: {e}", dir.display()))?;
-            for r in build_all(&show) {
+            let (reports, logo_error) = build_all_with(&show, &job);
+            if let Some(e) = logo_error {
+                eprintln!("patchferret: logo not embedded: {e}");
+            }
+            for r in reports {
                 let target = dir.join(&r.file_name);
                 std::fs::write(&target, &r.bytes)
                     .map_err(|e| format!("writing {}: {e}", target.display()))?;
@@ -130,6 +186,29 @@ fn run(args: &[String]) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+/// Read a job sheet and its logo, if one was given.
+fn load_job(path: Option<&str>) -> Result<JobInfo, String> {
+    let Some(path) = path else {
+        return Ok(JobInfo::default());
+    };
+    let text = std::fs::read_to_string(path).map_err(|e| format!("reading {path}: {e}"))?;
+    let (mut job, logo_path) = JobInfo::parse_sidecar(&text);
+
+    if let Some(logo) = logo_path {
+        // Resolve the logo relative to the job sheet, so a job folder can be
+        // moved around as a unit.
+        let resolved = Path::new(path)
+            .parent()
+            .map(|d| d.join(&logo))
+            .unwrap_or_else(|| PathBuf::from(&logo));
+        let bytes = std::fs::read(&resolved)
+            .or_else(|_| std::fs::read(&logo))
+            .map_err(|e| format!("reading logo {}: {e}", resolved.display()))?;
+        job.logo = Some(Logo::new(bytes));
+    }
+    Ok(job)
 }
 
 fn flag(args: &[String], short: &str, long: &str) -> Option<String> {

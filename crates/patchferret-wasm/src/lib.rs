@@ -23,8 +23,8 @@
 use std::alloc::{alloc, dealloc, Layout};
 
 use patchferret_formats::{detect, ShowFile, ShowInput};
-use patchferret_model::{xml, Show};
-use patchferret_report::build_all;
+use patchferret_model::{xml, JobInfo, Logo, Show};
+use patchferret_report::build_all_with;
 
 /// A human-readable error; no other records will follow.
 pub const KIND_ERROR: u32 = 0;
@@ -34,6 +34,8 @@ pub const KIND_SUMMARY: u32 = 1;
 pub const KIND_XML: u32 = 2;
 /// A generated PDF.
 pub const KIND_PDF: u32 = 3;
+/// Something went wrong but the run still produced output.
+pub const KIND_WARNING: u32 = 4;
 
 /// Allocate `len` bytes for the caller to write input into.
 ///
@@ -178,6 +180,10 @@ pub unsafe extern "C" fn pf_process(
     name_len: usize,
     data_ptr: *const u8,
     data_len: usize,
+    job_ptr: *const u8,
+    job_len: usize,
+    logo_ptr: *const u8,
+    logo_len: usize,
 ) -> *mut u8 {
     if data_ptr.is_null() || data_len == 0 {
         return error("empty file");
@@ -204,6 +210,18 @@ pub unsafe extern "C" fn pf_process(
         Err(e) => return error(&e.to_string()),
     };
 
+    // Job metadata arrives as the same `key: value` sheet the CLI reads, so
+    // the two front ends cannot drift apart on which keys are understood.
+    let mut job = if job_ptr.is_null() || job_len == 0 {
+        JobInfo::default()
+    } else {
+        let text = String::from_utf8_lossy(std::slice::from_raw_parts(job_ptr, job_len));
+        JobInfo::parse_sidecar(&text).0
+    };
+    if !logo_ptr.is_null() && logo_len > 0 {
+        job.logo = Some(Logo::new(std::slice::from_raw_parts(logo_ptr, logo_len).to_vec()));
+    }
+
     let mut w = Writer::new();
     w.record(KIND_SUMMARY, "summary", summary_json(&show, adapter.display_name()).as_bytes());
 
@@ -215,7 +233,13 @@ pub unsafe extern "C" fn pf_process(
         Err(e) => w.record(KIND_ERROR, "xml", e.to_string().as_bytes()),
     }
 
-    for r in build_all(&show) {
+    let (reports, logo_error) = build_all_with(&show, &job);
+    if let Some(e) = logo_error {
+        // Not fatal: the reports are built without the logo, and the page says
+        // why rather than silently dropping it.
+        w.record(KIND_WARNING, "logo", e.as_bytes());
+    }
+    for r in reports {
         w.record(KIND_PDF, &r.file_name, &r.bytes);
     }
 
@@ -253,7 +277,16 @@ mod tests {
 
     fn process(name: &str, data: &[u8]) -> Vec<(u32, String, Vec<u8>)> {
         unsafe {
-            let ptr = pf_process(name.as_ptr(), name.len(), data.as_ptr(), data.len());
+            let ptr = pf_process(
+                name.as_ptr(),
+                name.len(),
+                data.as_ptr(),
+                data.len(),
+                std::ptr::null(),
+                0,
+                std::ptr::null(),
+                0,
+            );
             let records = decode(ptr);
             pf_free(ptr, pf_result_len(ptr));
             records
@@ -309,7 +342,16 @@ mod tests {
     #[test]
     fn empty_input_returns_an_error_not_a_crash() {
         unsafe {
-            let ptr = pf_process(std::ptr::null(), 0, std::ptr::null(), 0);
+            let ptr = pf_process(
+                std::ptr::null(),
+                0,
+                std::ptr::null(),
+                0,
+                std::ptr::null(),
+                0,
+                std::ptr::null(),
+                0,
+            );
             let records = decode(ptr);
             assert_eq!(records[0].0, KIND_ERROR);
             pf_free(ptr, pf_result_len(ptr));

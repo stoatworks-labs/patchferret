@@ -74,6 +74,33 @@
   th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--rule); }
   th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; }
   .hidden { display: none; }
+  details.job { margin-bottom: 20px; }
+  details.job > summary {
+    cursor: pointer; list-style: none; padding: 14px 18px;
+    background: var(--panel); border: 1px solid var(--rule); border-radius: var(--radius);
+    font-size: 14px; display: flex; align-items: center; gap: 10px;
+  }
+  details.job[open] > summary { border-radius: var(--radius) var(--radius) 0 0; }
+  details.job > summary::-webkit-details-marker { display: none; }
+  details.job > summary .chev { color: var(--muted); transition: transform .15s; }
+  details.job[open] > summary .chev { transform: rotate(90deg); }
+  details.job > summary small { color: var(--muted); font-weight: 400; }
+  .jobbody {
+    border: 1px solid var(--rule); border-top: 0;
+    border-radius: 0 0 var(--radius) var(--radius); padding: 18px; background: var(--panel);
+  }
+  .fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label { font-size: 12px; color: var(--muted); }
+  .field input, .field textarea {
+    font: inherit; font-size: 13.5px; padding: 7px 9px; border-radius: 7px;
+    border: 1px solid var(--rule); background: var(--bg); color: var(--ink);
+  }
+  .field input:focus, .field textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .field.wide { grid-column: 1 / -1; }
+  .logorow { display: flex; align-items: center; gap: 12px; margin-top: 14px; flex-wrap: wrap; }
+  .logorow img { max-height: 44px; max-width: 160px; border: 1px solid var(--rule); border-radius: 6px; background: #fff; }
+  #warning { border-left: 3px solid var(--warn); padding-left: 14px; color: var(--warn); }
   footer { margin-top: 40px; color: var(--muted); font-size: 13px; }
   a { color: var(--accent); }
 </style>
@@ -92,7 +119,41 @@
     <input type="file" id="picker">
   </div>
 
+  <details class="job" id="jobPanel">
+    <summary>
+      <span class="chev">&rsaquo;</span>
+      <span>Report header</span>
+      <small id="jobSummary">optional &middot; logo, event, venue, engineer&hellip;</small>
+    </summary>
+    <div class="jobbody">
+      <div class="fields">
+        <div class="field"><label for="f_event">Event / production</label><input id="f_event" data-key="Event" placeholder="Summer Live 2026"></div>
+        <div class="field"><label for="f_date">Date</label><input id="f_date" data-key="Date" placeholder="12-14 September"></div>
+        <div class="field"><label for="f_artist">Artist / act</label><input id="f_artist" data-key="Artist"></div>
+        <div class="field"><label for="f_venue">Venue</label><input id="f_venue" data-key="Venue"></div>
+        <div class="field"><label for="f_production">Production company</label><input id="f_production" data-key="Production"></div>
+        <div class="field"><label for="f_engineer">Sound engineer</label><input id="f_engineer" data-key="Engineer"></div>
+        <div class="field"><label for="f_contact">Contact</label><input id="f_contact" data-key="Contact" placeholder="phone / email"></div>
+        <div class="field"><label for="f_console">Console <small>(override)</small></label><input id="f_console" data-key="Console" placeholder="from the show file"></div>
+        <div class="field"><label for="f_firmware">Firmware <small>(override)</small></label><input id="f_firmware" data-key="Firmware" placeholder="from the show file"></div>
+        <div class="field wide"><label for="f_notes">Notes</label><input id="f_notes" data-key="Notes" placeholder="One line printed under the header"></div>
+        <div class="field wide">
+          <label for="f_extra">Extra fields — one <code>Label: value</code> per line</label>
+          <textarea id="f_extra" rows="2" placeholder="Truck call: 06:00&#10;Rider rev: C"></textarea>
+        </div>
+      </div>
+      <div class="logorow">
+        <button type="button" id="logoPick">Choose logo&hellip;</button>
+        <input type="file" id="logoInput" accept="image/*">
+        <img id="logoPreview" class="hidden" alt="logo preview">
+        <button type="button" id="logoClear" class="hidden">Remove</button>
+        <span id="logoNote" style="color:var(--muted);font-size:12.5px">Any image — converted for print in your browser</span>
+      </div>
+    </div>
+  </details>
+
   <div id="error" class="panel hidden"></div>
+  <div id="warning" class="panel hidden"></div>
 
   <div id="results" class="hidden">
     <div class="panel">
@@ -133,13 +194,38 @@
 </div>
 
 <script type="module">
-import { init, process, download, KIND } from './patchferret.js';
+import { init, process, download, imageToJpeg, KIND } from './patchferret.js';
 
 const drop = document.getElementById('drop');
 const picker = document.getElementById('picker');
 const hint = document.getElementById('dropHint');
 const errorBox = document.getElementById('error');
 const results = document.getElementById('results');
+const warningBox = document.getElementById('warning');
+const logoInput = document.getElementById('logoInput');
+const logoPreview = document.getElementById('logoPreview');
+const logoClear = document.getElementById('logoClear');
+const logoNote = document.getElementById('logoNote');
+
+let logoBytes = null;
+/** The show file, kept so edits to the header can re-render without re-picking it. */
+let lastFile = null;
+
+/** Build the same `key: value` sheet the CLI reads, so both stay in step. */
+function jobSheet() {
+  const lines = [];
+  document.querySelectorAll('[data-key]').forEach(el => {
+    const v = el.value.trim();
+    if (v) lines.push(`${el.dataset.key}: ${v}`);
+  });
+  const extra = document.getElementById('f_extra').value.trim();
+  if (extra) lines.push(extra);
+  return lines.join('\n');
+}
+
+function jobIsSet() {
+  return jobSheet().length > 0 || logoBytes !== null;
+}
 
 let ready = false;
 
@@ -157,6 +243,12 @@ function showError(message) {
   results.classList.add('hidden');
 }
 
+function showWarning(message) {
+  if (!message) { warningBox.classList.add('hidden'); return; }
+  warningBox.textContent = message;
+  warningBox.classList.remove('hidden');
+}
+
 function bytes(n) {
   return n < 1024 ? `${n} B`
     : n < 1024 * 1024 ? `${(n / 1024).toFixed(1)} kB`
@@ -166,6 +258,7 @@ function bytes(n) {
 function render(result) {
   if (result.error) { showError(result.error); return; }
   errorBox.classList.add('hidden');
+  showWarning(result.warning);
   results.classList.remove('hidden');
 
   const s = result.summary;
@@ -222,13 +315,53 @@ function escapeHtml(s) {
 
 async function handle(file) {
   if (!ready) { showError('The core is still loading — try again in a moment.'); return; }
+  lastFile = file;
   try {
     const buf = new Uint8Array(await file.arrayBuffer());
-    render(process(file.name, buf));
+    render(process(file.name, buf, jobSheet(), logoBytes));
   } catch (e) {
     showError(`Could not read that file: ${e.message}`);
   }
 }
+
+/** Re-run with the current header fields, once a file has been loaded. */
+function rerender() {
+  document.getElementById('jobSummary').textContent =
+    jobIsSet() ? 'set — included on every report' : 'optional · logo, event, venue, engineer…';
+  if (lastFile) handle(lastFile);
+}
+
+document.querySelectorAll('[data-key], #f_extra').forEach(el => {
+  // Re-render on blur rather than per keystroke: each run regenerates three
+  // PDFs, which is wasted work halfway through typing a venue name.
+  el.addEventListener('change', rerender);
+  el.addEventListener('blur', rerender);
+});
+
+document.getElementById('logoPick').addEventListener('click', () => logoInput.click());
+logoInput.addEventListener('change', async () => {
+  const f = logoInput.files[0];
+  if (!f) return;
+  try {
+    // Convert in the browser so transparent PNGs, WebP and SVG all work.
+    logoBytes = await imageToJpeg(f);
+    logoPreview.src = URL.createObjectURL(new Blob([logoBytes], { type: 'image/jpeg' }));
+    logoPreview.classList.remove('hidden');
+    logoClear.classList.remove('hidden');
+    logoNote.textContent = f.name;
+    rerender();
+  } catch (e) {
+    showError(`Could not use that logo: ${e.message}`);
+  }
+});
+logoClear.addEventListener('click', () => {
+  logoBytes = null;
+  logoInput.value = '';
+  logoPreview.classList.add('hidden');
+  logoClear.classList.add('hidden');
+  logoNote.textContent = 'Any image — converted for print in your browser';
+  rerender();
+});
 
 drop.addEventListener('click', () => picker.click());
 drop.addEventListener('keydown', e => {

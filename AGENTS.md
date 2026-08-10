@@ -85,7 +85,7 @@ Zero runtime dependencies beyond `quick-xml` and `thiserror`. Deliberate:
   wasm32-unknown-unknown` is the entire toolchain.
 
 ```bash
-cargo test                      # 90 tests
+cargo test                      # 110 tests
 ./scripts/build-web.sh          # browser bundle
 python3 -m http.server 8731 --directory web
 ```
@@ -139,6 +139,28 @@ skips when the editors are absent and the unit tests use synthetic containers):
 
 **Explicitly not built:** writing show files, converting between consoles, and conforming to a
 target profile. `ConsoleProfile` exists to make the third tractable but nothing consumes it yet.
+
+## Job metadata and the header
+
+`JobInfo` is **deliberately not part of `Show`**. `Show` means "what the file says"; the event
+name and the engineer's phone number are user-typed, and mixing them in would destroy the one
+property that makes the model trustworthy. Reports take both.
+
+Both front ends feed it the *same* `key: value` sheet — the browser form serialises to the
+format the CLI parses — so the two cannot drift on which keys are understood. Unknown keys
+become extra header fields by design.
+
+Traps here:
+
+- **`cover_height` and `cover_header` must agree on the row count.** They computed it separately
+  at first, and the moment console/firmware rows became conditional the rule was drawn straight
+  through the notes line. `header_rows()` is now the single source both use.
+- **PDF objects are `Vec<u8>`, not `String`.** An image XObject's stream is raw JPEG or Flate;
+  routing it through a `String` replaces every byte above 0x7F. This bit once already with the
+  xref offsets — same root cause, different symptom.
+- **`q`/`Q` around the image CTM.** Drawing an image means scaling the unit square, and without
+  the save/restore that transform multiplies every later coordinate on the page.
+- A logo that cannot be embedded is a **warning, not a failure**. The patch list is the point.
 
 ## Conventions
 
