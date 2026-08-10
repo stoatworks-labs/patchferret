@@ -18,6 +18,9 @@
 Turn a mixing console show file into documentation an engineer can actually use: a patch list,
 a specification sheet and a wiring topology diagram, as PDFs.
 
+**Try it: <https://patchferret.stoatworks-labs.com>** — an early preview, and still very much in
+development.
+
 Runs in the browser or on the command line. The browser build parses and renders entirely in
 WebAssembly, so **a show file never leaves the machine** — there is no upload and no server.
 

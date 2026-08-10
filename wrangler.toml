@@ -1,0 +1,26 @@
+# Cloudflare Worker config — static assets only.
+#
+# PatchFerret is entirely static: the parser, the PFX writer and the PDF
+# generator are all compiled to WASM and run in the tab. There is no backend,
+# which is the whole privacy claim — a show file never leaves the machine — so
+# there is deliberately nothing here to send one to.
+#
+# Deployed as a *Worker* rather than a Pages project to match the rest of the
+# fleet. `[assets] directory` is the Worker form; the Pages form is
+# `pages_build_output_dir` and the two are not interchangeable.
+#
+# `directory` points at `web/` rather than a build output, because the page is
+# hand-written HTML and JS. The one artefact it needs is `web/patchferret.wasm`,
+# which is gitignored and produced by `./scripts/build-web.sh` — so a deploy
+# from a fresh clone must run that first or it ships a page whose core 404s.
+name = "patchferret"
+compatibility_date = "2026-07-30"
+
+[assets]
+directory = "./web"
+
+# Attached here rather than by hand in the dashboard, so the hostname is part of
+# the repo and a fresh deploy cannot come up without it.
+[[routes]]
+pattern = "patchferret.stoatworks-labs.com"
+custom_domain = true

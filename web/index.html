@@ -23,6 +23,18 @@
   }
   .wrap { max-width: 880px; margin: 0 auto; padding: 40px 20px 80px; }
   header h1 { margin: 0 0 6px; font-size: 28px; letter-spacing: -0.02em; }
+  header h1 .preview {
+    font-size: 14px; font-weight: 500; letter-spacing: 0; vertical-align: middle;
+    color: var(--warn); border: 1px solid currentColor; border-radius: 999px;
+    padding: 2px 9px; margin-left: 10px;
+  }
+  .devnote {
+    margin-top: 14px; padding: 12px 15px; border-radius: var(--radius);
+    border: 1px solid var(--warn); color: var(--ink);
+    background: color-mix(in srgb, var(--warn) 8%, transparent);
+    font-size: 13.5px; line-height: 1.5;
+  }
+  .devnote b { color: var(--warn); }
   header p { margin: 0 0 4px; color: var(--muted); }
   .privacy {
     display: inline-block; margin-top: 14px; padding: 6px 11px;
@@ -108,9 +120,17 @@
 <body>
 <div class="wrap">
   <header>
-    <h1>PatchFerret</h1>
+    <h1>PatchFerret <span class="preview">preview</span></h1>
     <p>Turn a mixing console show file into a patch list, a specification sheet and a wiring topology diagram.</p>
     <div class="privacy">Your show file never leaves this browser — parsing and PDF generation run locally in WebAssembly.</div>
+    <div class="devnote">
+      <b>This is an early preview and very much still in development.</b>
+      Three console families are readable so far, and only partly: channel names and the input
+      patch come through, while head-amp gain, bus sends and processing do not yet. Nothing it
+      produces has been checked against a real console's own screens, and it cannot write or
+      convert show files at all. Treat its output as a draft to check, not as paperwork to hang
+      a show on.
+    </div>
   </header>
 
   <div id="drop" tabindex="0" role="button" aria-label="Choose a show file">
