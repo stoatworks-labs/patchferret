@@ -121,6 +121,8 @@ pub fn adapters() -> Vec<Box<dyn ShowAdapter>> {
         Box::new(x32::X32Adapter),
         Box::new(yamaha::YamahaAdapter),
         Box::new(ah::AllenHeathAdapter),
+        Box::new(ah::sq::SqAdapter),
+        Box::new(yamaha::clf::ClfAdapter),
     ]
 }
 

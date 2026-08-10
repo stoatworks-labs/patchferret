@@ -28,6 +28,7 @@
 //! `docs/allen-heath.md` in the research repository.
 
 pub mod archive;
+pub mod sq;
 
 use patchferret_model::*;
 

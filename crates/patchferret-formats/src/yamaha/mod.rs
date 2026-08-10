@@ -23,6 +23,7 @@
 //! Where the type code is unrecognised the socket is left unresolved and a
 //! diagnostic is emitted rather than a guess.
 
+pub mod clf;
 pub mod mbdf;
 pub mod mms;
 

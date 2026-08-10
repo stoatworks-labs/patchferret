@@ -67,6 +67,10 @@ Break these and the output becomes confidently wrong rather than obviously broke
   first. Hardcoding DM3's names made TF resolve zero connectors *and emit no diagnostic* — a
   silent wrong answer. Find the collection by any known name, then take whatever parameter it
   actually contains, and treat "found the collection but got no value" as a diagnostic.
+- **A default patch is a sequential run, but not always an adjacent one.** Scanning for ascending
+  byte runs found the Avantis and CL/QL tables instantly and finds nothing at all on SQ, whose
+  values sit 336 bytes apart inside per-channel records. The heuristic failing is not evidence a
+  format lacks a patch table.
 - **A&H shows do not name the console model.** A numbered scene leads with its own *name*, and
   the factory FOH show happens to call scene 002 "Avantis" — which looks exactly like a model
   field and is not one. A detector built on that passes on the factory shows and fails on every
@@ -89,7 +93,7 @@ Zero runtime dependencies beyond `quick-xml` and `thiserror`. Deliberate:
   wasm32-unknown-unknown` is the entire toolchain.
 
 ```bash
-cargo test                      # 124 tests
+cargo test                      # 146 tests
 ./scripts/build-web.sh          # browser bundle
 python3 -m http.server 8731 --directory web
 ```
@@ -131,6 +135,18 @@ compare. Nine bytes differed. Two things that generalise:
   nothing.
 - **The patch is not scene-recallable** — it lives only in `StageBoxScene65535`, the live state.
   Reading it from "the current scene" yields nothing.
+
+**Yamaha CL/QL and A&H SQ — patch tables located by controlled diff** in the manufacturers' own
+offline editors, and the adapters are checked against those exact files (gated behind
+`PF_CLF_BASE` / `PF_SQ_NVDATA` etc., skipping when absent). Two things to keep honest:
+
+- **CL/QL's patch table is at an ABSOLUTE offset** (`0x00d74b`) established on one QL5 written by
+  one editor build. Nothing in the file points at it. The adapter therefore checks that what it
+  finds there actually decodes, and reports "probably not the table" rather than printing 64
+  channels of noise if another frame size moves it.
+- **SQ's patch byte is a socket NUMBER with no class.** Only a Local patch was ever observed; an
+  SQ can also take SLink, USB and I/O Port. The device is deliberately labelled "Input socket
+  (class not decoded)" rather than "Local", because naming it would read as a fact.
 
 **Verified by construction, not by hardware:**
 

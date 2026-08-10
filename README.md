@@ -8,7 +8,10 @@
 > links, and the output-source enumeration. The generated PDFs are
 > produced and visually inspected. **No output has ever been loaded back into a console**, no
 > conversion between consoles exists yet, and every format other than the X32 `.scn` is
-> unimplemented. The Yamaha adapter is checked against the 41 factory scenes shipped inside DM3
+> unimplemented. The CL/QL and SQ adapters were built from controlled diffs in the manufacturers'
+> own offline editors and are checked against those files; the CL/QL patch table is found at an
+> absolute offset established on a single QL5 and is validated before use rather than trusted.
+> The Yamaha MMS adapter is checked against the 41 factory scenes shipped inside DM3
 > and TF Editor, but its **patch-source encoding has never been confirmed against a console's
 > patch screen**, and on TF no connector resolves at all — the tool says so rather than
 > guessing. The X32 signal-source enumerations are likewise derived from community documentation
@@ -37,9 +40,9 @@ show file  →  format adapter  →  PFX model  →  ├─ patch list PDF
 |---|---|---|
 | Behringer X32 / Midas M32 / X-Air | `.scn` | **Supported** |
 | Yamaha DM3 / DM7 / TF | `.dm3s` `.tfs` `.dm7s` (+ presets) | **Supported** — names and input patch; head amps and sends not yet |
-| Yamaha CL / QL | `.CLF` | Not started — a different, older format |
+| Yamaha CL / QL | `.CLF` | **Supported** — input patch; a different, older format from the DM/TF one |
 | Allen & Heath Avantis / dLive | `.tar.gz` | **Supported** — input patch and strip inventory; names and preamps not yet |
-| Allen & Heath SQ | — | Planned |
+| Allen & Heath SQ | `NVDATA.DAT` | **Supported** — input patch; socket *class* not yet identified |
 | DiGiCo, Avid VENUE | — | Planned |
 
 Format research for the unimplemented consoles lives in the private `patchferret-research`
