@@ -67,6 +67,10 @@ Break these and the output becomes confidently wrong rather than obviously broke
   first. Hardcoding DM3's names made TF resolve zero connectors *and emit no diagnostic* — a
   silent wrong answer. Find the collection by any known name, then take whatever parameter it
   actually contains, and treat "found the collection but got no value" as a diagnostic.
+- **A&H shows do not name the console model.** A numbered scene leads with its own *name*, and
+  the factory FOH show happens to call scene 002 "Avantis" — which looks exactly like a model
+  field and is not one. A detector built on that passes on the factory shows and fails on every
+  user-saved one. The adapter says the model is unknown instead.
 - **MMSXLIT mixes endianness with the container.** Container record headers are big-endian;
   the schema metadata and the packed values are little-endian. Reading the DM3 patch word
   big-endian also yields tidy ascending indices, so "it looks right" proves nothing.
@@ -85,7 +89,7 @@ Zero runtime dependencies beyond `quick-xml` and `thiserror`. Deliberate:
   wasm32-unknown-unknown` is the entire toolchain.
 
 ```bash
-cargo test                      # 110 tests
+cargo test                      # 124 tests
 ./scripts/build-web.sh          # browser bundle
 python3 -m http.server 8731 --directory web
 ```
@@ -117,6 +121,16 @@ skips when the editors are absent and the unit tests use synthetic containers):
 - The reconstructed schema tree sums exactly to the declared root size, and the walk yields
   exactly the collection/parameter counts the editor's `mms_Mixing.xml` declares.
 - Channel names, colours and icons decode as real text.
+
+**Allen & Heath Avantis / dLive — the patch table was located by controlled diff**, not
+inference: store a show from Director offline, change exactly one patch point, store again,
+compare. Nine bytes differed. Two things that generalise:
+
+- **Compare decompressed contents, not files.** Every scene tarball differs between two saves on
+  gzip's embedded timestamp alone, so `diff -rq` reports sixty changed files and tells you
+  nothing.
+- **The patch is not scene-recallable** — it lives only in `StageBoxScene65535`, the live state.
+  Reading it from "the current scene" yields nothing.
 
 **Verified by construction, not by hardware:**
 

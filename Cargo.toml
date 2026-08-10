@@ -21,6 +21,11 @@ patchferret-formats = { path = "crates/patchferret-formats" }
 patchferret-report = { path = "crates/patchferret-report" }
 
 quick-xml = "0.36"
+# Pure-Rust DEFLATE. Allen & Heath shows are gzipped tars, and inflate is
+# neither cheap to hand-roll nor bloaty to depend on — miniz_oxide is no_std
+# capable and compiles to wasm32-unknown-unknown, which the C-backed zlib
+# bindings do not.
+miniz_oxide = { version = "0.9", default-features = false, features = ["with-alloc"] }
 thiserror = "1"
 
 [profile.release]

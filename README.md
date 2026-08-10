@@ -35,7 +35,8 @@ show file  →  format adapter  →  PFX model  →  ├─ patch list PDF
 | Behringer X32 / Midas M32 / X-Air | `.scn` | **Supported** |
 | Yamaha DM3 / DM7 / TF | `.dm3s` `.tfs` `.dm7s` (+ presets) | **Supported** — names and input patch; head amps and sends not yet |
 | Yamaha CL / QL | `.CLF` | Not started — a different, older format |
-| Allen & Heath SQ, dLive, Avantis | — | Planned |
+| Allen & Heath Avantis / dLive | `.tar.gz` | **Supported** — input patch and strip inventory; names and preamps not yet |
+| Allen & Heath SQ | — | Planned |
 | DiGiCo, Avid VENUE | — | Planned |
 
 Format research for the unimplemented consoles lives in the private `patchferret-research`
@@ -161,7 +162,7 @@ into a real console.
 
 ```
 crates/patchferret-model     PFX model, XML, console profiles
-crates/patchferret-formats   adapter trait, registry, X32 adapter
+crates/patchferret-formats   adapter trait, registry, X32 / Yamaha / A&H adapters
 crates/patchferret-report    dependency-free PDF writer and the three reports
 crates/patchferret-cli       the local tool
 crates/patchferret-wasm      C-ABI entry point for the browser

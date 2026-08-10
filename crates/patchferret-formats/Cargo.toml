@@ -10,3 +10,4 @@ description = "Show file format adapters — native console formats in, PFX out"
 [dependencies]
 patchferret-model = { workspace = true }
 thiserror = { workspace = true }
+miniz_oxide = { workspace = true }
