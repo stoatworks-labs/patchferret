@@ -62,6 +62,14 @@ Break these and the output becomes confidently wrong rather than obviously broke
   under-measures and text overruns its column. Non-ASCII punctuation is enumerated explicitly.
 - **The "not a scene file" guard must count recognised paths**, not resulting strips. A scene
   with only head amps is a valid parse; an early version rejected it.
+- **Yamaha field names differ per model, and getting it wrong fails silently.** DM3 has
+  `Patch/Source` at 4 bytes; TF has `Patch/Select` at 1; DM7 has `InPatch` and puts `Signal`
+  first. Hardcoding DM3's names made TF resolve zero connectors *and emit no diagnostic* — a
+  silent wrong answer. Find the collection by any known name, then take whatever parameter it
+  actually contains, and treat "found the collection but got no value" as a diagnostic.
+- **MMSXLIT mixes endianness with the container.** Container record headers are big-endian;
+  the schema metadata and the packed values are little-endian. Reading the DM3 patch word
+  big-endian also yields tidy ascending indices, so "it looks right" proves nothing.
 
 ## Environment
 
@@ -77,7 +85,7 @@ Zero runtime dependencies beyond `quick-xml` and `thiserror`. Deliberate:
   wasm32-unknown-unknown` is the entire toolchain.
 
 ```bash
-cargo test                      # 65 tests
+cargo test                      # 90 tests
 ./scripts/build-web.sh          # browser bundle
 python3 -m http.server 8731 --directory web
 ```
@@ -99,10 +107,26 @@ python3 -m http.server 8731 --directory web
 - Full round trip through PFX XML with byte-stable re-serialisation.
 - PDFs are generated, the xref table is walked, and all three were rendered and inspected.
 
+**Yamaha DM3 / DM7 / TF — verified against the 41 factory scenes** shipped inside DM3 Editor and
+TF Editor (vendor content in a licensed install, so it cannot be committed; the integration test
+skips when the editors are absent and the unit tests use synthetic containers):
+
+- The `#YAMAHA MBDF…` container, parsed unchanged across two subtypes and two models.
+- MMSXLIT is **self-describing** — schema records carry offset, datasize, arraysize, type and
+  width — which is why the adapter needs no vendor descriptor files and works in WASM.
+- The reconstructed schema tree sums exactly to the declared root size, and the walk yields
+  exactly the collection/parameter counts the editor's `mms_Mixing.xml` declares.
+- Channel names, colours and icons decode as real text.
+
 **Verified by construction, not by hardware:**
 
 - The X32 signal enumerations. See README "Provenance". The matrix-count check is a genuine
   falsification test, not a rationalisation, but neither enum has been confirmed on a desk.
+- The Yamaha **patch-source encoding**. DM3's word splits into an index plus a type code
+  (`0x0140`, `0x0160`), and the indices run sequentially across every factory scene — consistent
+  with the analog inputs, but never checked against a console's patch screen. On **TF nothing
+  resolves**: its field is one byte and names a selector, not a port. Both cases emit a
+  diagnostic instead of a connector.
 
 **Assumed / unverified — do not claim otherwise:**
 

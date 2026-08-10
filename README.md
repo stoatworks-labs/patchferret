@@ -3,12 +3,15 @@
 > **AI-assisted project.** This codebase was created with [Claude Code](https://claude.com/claude-code)
 > (Anthropic), directed and reviewed by a human author. The Behringer X32 adapter is written
 > against a real 2,104-line scene file saved by an actual console and is asserted against it in
-> CI — 65 tests across the workspace, of which 17 cover the X32 adapter: the
+> CI — 90 tests across the workspace, of which 17 cover the X32 adapter: the
 > connector→slot→channel composition, the head-amp index split across the local and both AES50
 > links, and the output-source enumeration. The generated PDFs are
 > produced and visually inspected. **No output has ever been loaded back into a console**, no
 > conversion between consoles exists yet, and every format other than the X32 `.scn` is
-> unimplemented. The X32 signal-source enumerations are derived from community documentation
+> unimplemented. The Yamaha adapter is checked against the 41 factory scenes shipped inside DM3
+> and TF Editor, but its **patch-source encoding has never been confirmed against a console's
+> patch screen**, and on TF no connector resolves at all — the tool says so rather than
+> guessing. The X32 signal-source enumerations are likewise derived from community documentation
 > and corroborated against real files, **not** from a running desk — see
 > [Provenance](#provenance-of-the-x32-enumerations).
 
@@ -30,7 +33,8 @@ show file  →  format adapter  →  PFX model  →  ├─ patch list PDF
 | Console | File | Status |
 |---|---|---|
 | Behringer X32 / Midas M32 / X-Air | `.scn` | **Supported** |
-| Yamaha DM7, CL/QL | — | Planned |
+| Yamaha DM3 / DM7 / TF | `.dm3s` `.tfs` `.dm7s` (+ presets) | **Supported** — names and input patch; head amps and sends not yet |
+| Yamaha CL / QL | `.CLF` | Not started — a different, older format |
 | Allen & Heath SQ, dLive, Avantis | — | Planned |
 | DiGiCo, Avid VENUE | — | Planned |
 

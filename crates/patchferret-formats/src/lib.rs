@@ -13,6 +13,7 @@
 //! would force a redesign at exactly the point the format work gets hard.
 
 pub mod x32;
+pub mod yamaha;
 
 use patchferret_model::Show;
 
@@ -115,7 +116,7 @@ pub trait ShowAdapter {
 
 /// Every adapter compiled into this build.
 pub fn adapters() -> Vec<Box<dyn ShowAdapter>> {
-    vec![Box::new(x32::X32Adapter)]
+    vec![Box::new(x32::X32Adapter), Box::new(yamaha::YamahaAdapter)]
 }
 
 /// Pick the adapter most confident about this input.
