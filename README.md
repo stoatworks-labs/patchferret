@@ -40,9 +40,9 @@ show file  →  format adapter  →  PFX model  →  ├─ patch list PDF
 |---|---|---|
 | Behringer X32 / Midas M32 / X-Air | `.scn` | **Supported** |
 | Yamaha DM3 / DM7 / TF | `.dm3s` `.tfs` `.dm7s` (+ presets) | **Supported** — names and input patch; head amps and sends not yet |
-| Yamaha CL / QL | `.CLF` | **Supported** — input patch; a different, older format from the DM/TF one |
+| Yamaha CL / QL | `.CLF` | **Supported** — input patch and channel names |
 | Allen & Heath Avantis / dLive | `.tar.gz` | **Supported** — input patch and strip inventory; names and preamps not yet |
-| Allen & Heath SQ | `NVDATA.DAT` | **Supported** — input patch; socket *class* not yet identified |
+| Allen & Heath SQ | `NVDATA.DAT` | **Supported** — input patch; names and socket *class* not yet identified |
 | DiGiCo, Avid VENUE | — | Planned |
 
 Format research for the unimplemented consoles lives in the private `patchferret-research`

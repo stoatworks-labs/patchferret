@@ -11,6 +11,7 @@
 //! PF_SQ_NVDATA_MOD=…                      after Ip3 was moved to Local 10
 //! PF_CLF_BASE=~/Documents/pfql_base.CLF   QL5 default
 //! PF_CLF_MOD=~/Documents/pfql_mod3.CLF    after CH4→DANTE1 and CH12→DANTE2
+//! PF_CLF_NAME=~/Documents/pfql_name.CLF   after CH8 was renamed to ZZTOP
 //! ```
 
 use patchferret_formats::{parse_auto, ShowInput};
@@ -120,6 +121,48 @@ fn clf_reflects_both_patch_points_that_were_moved() {
         .filter(|(a, b)| a.socket != b.socket)
         .count();
     assert_eq!(differing, 2, "exactly two channels were edited");
+}
+
+#[test]
+fn clf_reads_channel_names_out_of_the_split_table() {
+    let Some(show) = parse("PF_CLF_NAME") else {
+        eprintln!("skipping: PF_CLF_NAME not set");
+        return;
+    };
+    let name = |ch: u16| show.strip(StripId::new(StripKind::Input, ch)).unwrap().name.clone();
+
+    // The renamed channel, spanning both blocks of the split table.
+    assert_eq!(name(8), "ZZTOP");
+    // Its neighbours keep the four-character defaults, which is what proves the
+    // reassembly is not just reading one block and getting lucky.
+    assert_eq!(name(7), "ch 7");
+    assert_eq!(name(9), "ch 9");
+    assert_eq!(name(64), "ch64");
+}
+
+#[test]
+fn clf_rename_moved_only_the_one_channel() {
+    let (Some(base), Some(renamed)) = (parse("PF_CLF_BASE"), parse("PF_CLF_NAME")) else {
+        eprintln!("skipping: PF_CLF_BASE / PF_CLF_NAME not set");
+        return;
+    };
+    let differing =
+        base.strips.iter().zip(&renamed.strips).filter(|(a, b)| a.name != b.name).count();
+    assert_eq!(differing, 1, "more than the one renamed channel changed");
+}
+
+#[test]
+fn sq_keeps_unpatched_channels_in_the_list() {
+    let Some(show) = parse("PF_SQ_NVDATA") else {
+        eprintln!("skipping: PF_SQ_NVDATA not set");
+        return;
+    };
+    // An SQ-7 lists Ip1-Ip40; the default show patches the first 32 and leaves
+    // the rest with no source. All forty must appear.
+    assert_eq!(show.patch.inputs.len(), 40, "unpatched channels were dropped");
+    let with = show.patch.inputs.iter().filter(|p| p.socket.is_some()).count();
+    assert_eq!(with, 32);
+    assert!(show.patch.inputs.iter().all(|p| p.strip.is_some()));
 }
 
 #[test]

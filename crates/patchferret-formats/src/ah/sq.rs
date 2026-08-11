@@ -33,11 +33,26 @@ const CHANNEL_STRIDE: usize = 336;
 /// Anchoring on this rather than on the absolute offset the diff produced means
 /// the scan survives a file whose records sit somewhere else — and it fails
 /// loudly rather than reading whatever happens to be at a hardcoded address.
+///
+/// The byte between `SIG_AFTER_0` and `SIG_AFTER_2` is **not** part of the
+/// signature: it is a patched/unpatched flag. Treating it as fixed at `0x01`
+/// silently dropped every unpatched channel — on a default SQ-7 that lost
+/// Ip33–Ip40 entirely, and the patch list simply had eight fewer rows than the
+/// console does with no indication anything was missing.
 const SIG_BEFORE: [u8; 3] = [0xFF, 0xFF, 0xFF];
-const SIG_AFTER: [u8; 3] = [0x00, 0x01, 0xFE];
+const SIG_AFTER_0: u8 = 0x00;
+const SIG_AFTER_2: u8 = 0xFE;
 
-/// A plausible SQ input count; a run longer than this means the scan is wrong.
-const MAX_CHANNELS: usize = 128;
+/// Input channels on the frame this was established on.
+///
+/// The record array runs to 122 entries and covers far more than the input
+/// channels — stereo inputs and mix objects share the same 336-byte stride, and
+/// nothing in the file marks where one kind ends and the next begins. An SQ-7's
+/// Setup → Strip Assign page lists **Ip1–Ip40**, then ST1–ST3 and USB, and the
+/// value pattern agrees: records 0–39 index the local sockets, and record 40
+/// onward jumps to socket 49+. So the boundary is taken from the console rather
+/// than derived, and the adapter says so.
+const INPUT_CHANNELS: usize = 40;
 
 pub struct SqAdapter;
 
@@ -119,7 +134,7 @@ fn nvdata(input: &ShowInput) -> Option<Vec<u8>> {
 fn patch_offsets(d: &[u8]) -> (Vec<usize>, usize) {
     let mut hits = Vec::new();
     for i in 3..d.len().saturating_sub(4) {
-        if d[i - 3..i] == SIG_BEFORE && d[i + 1..i + 4] == SIG_AFTER {
+        if d[i - 3..i] == SIG_BEFORE && d[i + 1] == SIG_AFTER_0 && d[i + 3] == SIG_AFTER_2 {
             hits.push(i);
         }
     }
@@ -161,8 +176,11 @@ fn patch_offsets(d: &[u8]) -> (Vec<usize>, usize) {
         others += 1;
     }
 
-    best.truncate(MAX_CHANNELS);
-    (best, others)
+    // Only the leading records are input channels; the rest of the run is other
+    // object kinds at the same stride.
+    let over = best.len().saturating_sub(INPUT_CHANNELS);
+    best.truncate(INPUT_CHANNELS);
+    (best, others + usize::from(over > 0))
 }
 
 fn devices() -> Vec<Device> {
@@ -196,14 +214,24 @@ pub fn parse_nvdata(d: &[u8], name: &str) -> Result<Show, SqError> {
         .to_string();
     show.devices = devices();
 
+    let mut unpatched = 0usize;
     for (i, &off) in offsets.iter().enumerate() {
         let ch = (i + 1) as u16;
         show.strips.push(Strip::new(StripId::new(StripKind::Input, ch)));
+
+        // The byte two past the patch field says whether the channel is patched
+        // at all. An unpatched channel still gets a row — a patch list that
+        // silently omits it is how you discover on site that a channel has no
+        // source.
+        let patched = d.get(off + 2).copied() == Some(0x01);
+        if !patched {
+            unpatched += 1;
+        }
         show.patch.inputs.push(InputPatch {
             slot: ch,
             block_label: String::new(),
             // The field is a 0-based socket index; connectors are numbered from 1.
-            socket: Some(SocketRef::new("input", Direction::In, d[off] as u16 + 1)),
+            socket: patched.then(|| SocketRef::new("input", Direction::In, d[off] as u16 + 1)),
             strip: Some(StripId::new(StripKind::Input, ch)),
         });
     }
@@ -223,10 +251,12 @@ pub fn parse_nvdata(d: &[u8], name: &str) -> Result<Show, SqError> {
         severity: Severity::Suspect,
         locus: "NVDATA.DAT".into(),
         message: format!(
-            "{} input channel records were read, taken as the longest run at the \
-             {CHANNEL_STRIDE}-byte record stride{}. That count comes from the file, not from \
-             knowing the console: if a frame has more input channels than this, the extras are \
-             missing from the patch list rather than shown as unpatched",
+            "{} input channel records were read ({unpatched} of them unpatched), taken from the \
+             start of the longest run at the {CHANNEL_STRIDE}-byte record stride{}. The run \
+             itself is longer and continues into stereo inputs and mix objects, which share the \
+             stride; nothing in the file marks the boundary, so the input-channel count is taken \
+             from an SQ-7's Setup page rather than derived. A frame with a different count will \
+             read wrong here",
             offsets.len(),
             if other_runs > 0 {
                 format!(
@@ -254,6 +284,28 @@ pub fn parse_nvdata(d: &[u8], name: &str) -> Result<Show, SqError> {
 mod tests {
     use super::*;
 
+    /// Build an NVRAM image whose channels carry `(socket, patched)`.
+    fn image_flagged(tag: u8, patch: &[(u8, bool)]) -> Vec<u8> {
+        let mut d = vec![0u8; IMAGE_LEN];
+        d[0] = tag;
+        d[1] = 0x00;
+        d[2] = 0xFE;
+        for b in d[3..12].iter_mut() {
+            *b = 0xFF;
+        }
+        d[0x0C..0x10].copy_from_slice(&[0x01, 0x06, 0x00, 0x01]);
+        let base = 0x38C;
+        for (i, &(v, on)) in patch.iter().enumerate() {
+            let at = base + i * CHANNEL_STRIDE;
+            d[at - 3..at].copy_from_slice(&SIG_BEFORE);
+            d[at] = v;
+            d[at + 1] = SIG_AFTER_0;
+            d[at + 2] = if on { 0x01 } else { 0x00 };
+            d[at + 3] = SIG_AFTER_2;
+        }
+        d
+    }
+
     /// Build an NVRAM image with `n` channel records carrying `patch[i]`.
     fn image(tag: u8, patch: &[u8]) -> Vec<u8> {
         let mut d = vec![0u8; IMAGE_LEN];
@@ -270,7 +322,9 @@ mod tests {
             let at = base + i * CHANNEL_STRIDE;
             d[at - 3..at].copy_from_slice(&SIG_BEFORE);
             d[at] = v;
-            d[at + 1..at + 4].copy_from_slice(&SIG_AFTER);
+            d[at + 1] = SIG_AFTER_0;
+            d[at + 2] = 0x01;
+            d[at + 3] = SIG_AFTER_2;
         }
         d
     }
@@ -307,6 +361,39 @@ mod tests {
     }
 
     #[test]
+    fn an_unpatched_channel_still_gets_a_row() {
+        // Regression: the byte after the patch is a patched/unpatched flag, and
+        // treating it as fixed at 0x01 dropped every unpatched channel. On a
+        // default SQ-7 that lost Ip33-Ip40 with nothing to show anything was
+        // missing.
+        let show = parse_nvdata(
+            &image_flagged(0xB5, &[(0, true), (1, true), (0, false), (3, true)]),
+            "NVDATA.DAT",
+        )
+        .unwrap();
+
+        assert_eq!(show.patch.inputs.len(), 4, "an unpatched channel was dropped");
+        assert_eq!(show.patch.inputs[2].socket, None, "unpatched channel invented a socket");
+        // ...and it still reaches its strip, so the row appears in the report.
+        assert_eq!(show.patch.inputs[2].strip, Some(StripId::new(StripKind::Input, 3)));
+        assert_eq!(
+            show.patch.inputs[3].socket,
+            Some(SocketRef::new("input", Direction::In, 4))
+        );
+        assert!(show.diagnostics.iter().any(|d| d.message.contains("1 of them unpatched")));
+    }
+
+    #[test]
+    fn stops_at_the_input_channels_rather_than_running_into_other_objects() {
+        // The record array continues past the input channels into stereo inputs
+        // and mix objects at the same stride, with nothing marking the boundary.
+        let many: Vec<(u8, bool)> = (0..80u8).map(|i| (i, true)).collect();
+        let show = parse_nvdata(&image_flagged(0xB5, &many), "NVDATA.DAT").unwrap();
+        assert_eq!(show.patch.inputs.len(), INPUT_CHANNELS);
+        assert!(show.diagnostics.iter().any(|d| d.message.contains("taken from an SQ-7")));
+    }
+
+    #[test]
     fn says_it_does_not_know_the_socket_class() {
         // The most misleading thing this adapter could do is present a bare
         // number as a Local socket, so the diagnostic is load-bearing.
@@ -322,7 +409,9 @@ mod tests {
         let stray = 0x1F000;
         d[stray - 3..stray].copy_from_slice(&SIG_BEFORE);
         d[stray] = 0x7F;
-        d[stray + 1..stray + 4].copy_from_slice(&SIG_AFTER);
+        d[stray + 1] = SIG_AFTER_0;
+        d[stray + 2] = 0x01;
+        d[stray + 3] = SIG_AFTER_2;
 
         let show = parse_nvdata(&d, "NVDATA.DAT").unwrap();
         assert_eq!(show.patch.inputs.len(), 4, "the stray match was counted as a channel");

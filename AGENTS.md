@@ -67,6 +67,16 @@ Break these and the output becomes confidently wrong rather than obviously broke
   first. Hardcoding DM3's names made TF resolve zero connectors *and emit no diagnostic* — a
   silent wrong answer. Find the collection by any known name, then take whatever parameter it
   actually contains, and treat "found the collection but got no value" as a diagnostic.
+- **CL/QL channel names are NOT stored contiguously.** Each block holds four characters of every
+  channel's name; the next four sit in the following block, 384 bytes on. `ZZTOP` lands as `ZZTO`
+  at `0x00d874` and `P` alone at `0x00d9f4`. Reading four contiguous bytes silently truncates
+  every name longer than four characters — and the default names are exactly four (`ch 1`…`ch96`),
+  so it looks perfect right up until someone names a channel.
+- **A "constant" byte in a signature may be a flag.** SQ's record signature looked like
+  `ff ff ff [patch] 00 01 fe`, but that `01` is a patched/unpatched flag. Requiring it dropped
+  every unpatched channel — eight of forty on a default SQ-7 — and the patch list simply had
+  fewer rows than the console, with nothing to say so. Check whether a "fixed" byte varies before
+  building it into a signature.
 - **A default patch is a sequential run, but not always an adjacent one.** Scanning for ascending
   byte runs found the Avantis and CL/QL tables instantly and finds nothing at all on SQ, whose
   values sit 336 bytes apart inside per-channel records. The heuristic failing is not evidence a
@@ -93,7 +103,7 @@ Zero runtime dependencies beyond `quick-xml` and `thiserror`. Deliberate:
   wasm32-unknown-unknown` is the entire toolchain.
 
 ```bash
-cargo test                      # 146 tests
+cargo test                      # 153 tests
 ./scripts/build-web.sh          # browser bundle
 python3 -m http.server 8731 --directory web
 ```

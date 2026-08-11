@@ -42,6 +42,24 @@ const CHANNELS: usize = 64;
 /// Where the product string sits in the header.
 const PRODUCT_AT: usize = 0x10;
 
+/// First block of the channel name table.
+///
+/// Names are **not stored contiguously**. Each block holds four characters of
+/// every channel's name; the next four live in the following block, 384 bytes
+/// on. So a five-character name appears as four bytes in one place and a single
+/// byte 384 bytes later, which is why scanning the file for name-shaped strings
+/// finds only the default four-character `ch 1`…`ch96` and nothing longer.
+///
+/// Established by renaming CH8 to `ZZTOP` in QL Editor and diffing: `ZZTO`
+/// landed at `0x00d874` and `P` alone at `0x00d9f4`.
+const NAME_TABLE: usize = 0x00d858;
+/// Characters per channel per block.
+const NAME_CHUNK: usize = 4;
+/// Channels in one block — 384 bytes / 4.
+const NAME_SLOTS: usize = 96;
+/// Blocks that hold name characters. Block 2 onward is other data entirely.
+const NAME_BLOCKS: usize = 2;
+
 pub struct ClfAdapter;
 
 impl ShowAdapter for ClfAdapter {
@@ -121,6 +139,23 @@ fn decode_source(v: u8) -> Option<(&'static str, u16)> {
     }
 }
 
+/// Reassemble one channel's name from its chunks.
+///
+/// `ch` is 1-based. Returns an empty string for an unnamed channel, which is
+/// what the console shows as `ch 7` and stores as exactly that text.
+fn channel_name(d: &[u8], ch: usize) -> String {
+    let mut raw = Vec::with_capacity(NAME_CHUNK * NAME_BLOCKS);
+    for block in 0..NAME_BLOCKS {
+        let at = NAME_TABLE + block * NAME_SLOTS * NAME_CHUNK + (ch - 1) * NAME_CHUNK;
+        match d.get(at..at + NAME_CHUNK) {
+            Some(chunk) => raw.extend_from_slice(chunk),
+            None => break,
+        }
+    }
+    let end = raw.iter().position(|&b| b == 0).unwrap_or(raw.len());
+    String::from_utf8_lossy(&raw[..end]).trim().to_string()
+}
+
 fn devices(product: &str) -> Vec<Device> {
     vec![
         Device {
@@ -191,9 +226,15 @@ pub fn parse_clf(d: &[u8], name: &str) -> Result<Show, ClfError> {
     }
 
     let mut unresolved = 0usize;
+    let mut named = 0usize;
     for (i, &v) in table.iter().enumerate() {
         let ch = (i + 1) as u16;
-        show.strips.push(Strip::new(StripId::new(StripKind::Input, ch)));
+        let mut strip = Strip::new(StripId::new(StripKind::Input, ch));
+        strip.name = channel_name(d, i + 1);
+        if !strip.name.is_empty() {
+            named += 1;
+        }
+        show.strips.push(strip);
 
         let socket = decode_source(v).map(|(dev, idx)| SocketRef::new(dev, Direction::In, idx));
         if socket.is_none() && v != 0x00 {
@@ -223,12 +264,14 @@ pub fn parse_clf(d: &[u8], name: &str) -> Result<Show, ClfError> {
     show.diagnostics.push(Diagnostic {
         severity: Severity::Unmodelled,
         locus: name.to_string(),
-        message: "channel names, head-amp gain and phantom, bus sends and processing are all in \
-                  this file and none of them are decoded yet — the format carries no schema, so \
-                  each has to be located by its own controlled diff. The file also carries a \
-                  checksum, which does not matter for reading but would have to be solved before \
-                  anything could be written back"
-            .into(),
+        message: format!(
+            "{named} of {} channels carry a name. Head-amp gain and phantom, bus sends and \
+             processing are all in this file and none of them are decoded yet — the format \
+             carries no schema, so each has to be located by its own controlled diff. The file \
+             also carries a checksum, which does not matter for reading but would have to be \
+             solved before anything could be written back",
+            table.len()
+        ),
     });
 
     Ok(show)
@@ -238,9 +281,26 @@ pub fn parse_clf(d: &[u8], name: &str) -> Result<Show, ClfError> {
 mod tests {
     use super::*;
 
+    /// Write `name` into the split name table for a 1-based channel.
+    fn set_name(d: &mut [u8], ch: usize, name: &str) {
+        let bytes = name.as_bytes();
+        for block in 0..NAME_BLOCKS {
+            let at = NAME_TABLE + block * NAME_SLOTS * NAME_CHUNK + (ch - 1) * NAME_CHUNK;
+            for k in 0..NAME_CHUNK {
+                let idx = block * NAME_CHUNK + k;
+                d[at + k] = bytes.get(idx).copied().unwrap_or(0);
+            }
+        }
+    }
+
     /// A synthetic CLF with the given patch table.
     fn clf(product_str: &str, table: &[u8]) -> Vec<u8> {
-        let mut d = vec![0u8; PATCH_TABLE + CHANNELS + 64];
+        let mut d = vec![
+            0u8;
+            (PATCH_TABLE + CHANNELS)
+                .max(NAME_TABLE + NAME_BLOCKS * NAME_SLOTS * NAME_CHUNK)
+                + 64
+        ];
         d[..8].copy_from_slice(&[0x01, 0, 0, 0, 0, 0, 0, 0x28]);
         d[PRODUCT_AT..PRODUCT_AT + product_str.len()].copy_from_slice(product_str.as_bytes());
         d[PATCH_TABLE..PATCH_TABLE + table.len()].copy_from_slice(table);
@@ -349,6 +409,30 @@ mod tests {
             .diagnostics
             .iter()
             .any(|d| d.message.contains("outside the ranges confirmed")));
+    }
+
+    #[test]
+    fn reassembles_a_name_split_across_two_blocks() {
+        // The whole point of the layout: "ZZTOP" is stored as "ZZTO" in one
+        // block and "P" alone 384 bytes later. Reading four contiguous bytes
+        // would silently truncate every name longer than four characters.
+        let mut d = clf("QL [OSX, 5.8.1.27]", &default_table());
+        set_name(&mut d, 8, "ZZTOP");
+        set_name(&mut d, 9, "ch 9");
+
+        let show = parse_clf(&d, "x.CLF").unwrap();
+        assert_eq!(show.strip(StripId::new(StripKind::Input, 8)).unwrap().name, "ZZTOP");
+        assert_eq!(show.strip(StripId::new(StripKind::Input, 9)).unwrap().name, "ch 9");
+        // An unnamed channel is empty, not garbage from the next block.
+        assert_eq!(show.strip(StripId::new(StripKind::Input, 1)).unwrap().name, "");
+    }
+
+    #[test]
+    fn a_full_eight_character_name_survives() {
+        let mut d = clf("QL [OSX, 5.8.1.27]", &default_table());
+        set_name(&mut d, 1, "LeadVox1");
+        let show = parse_clf(&d, "x.CLF").unwrap();
+        assert_eq!(show.strip(StripId::new(StripKind::Input, 1)).unwrap().name, "LeadVox1");
     }
 
     #[test]
