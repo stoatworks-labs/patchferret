@@ -4,6 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>PatchFerret — console show file documentation</title>
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="manifest" href="/manifest.webmanifest">
+<!-- iOS ignores the manifest's icons and wants a PNG of its own. -->
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<!-- Tints the status bar when installed. Two, so it follows the theme. -->
+<meta name="theme-color" content="#fbfbfc" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#14161a" media="(prefers-color-scheme: dark)">
 <style>
   :root {
     --bg: #fbfbfc; --panel: #fff; --ink: #1e2126; --muted: #6b7280;
@@ -216,6 +223,16 @@
 
 <script type="module">
 import { init, process, download, imageToJpeg, KIND } from './patchferret.js';
+
+// Offline support. Failure means no offline use and nothing else, and there is
+// nothing a user could do about it, so it is logged and dropped.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch((error) => {
+      console.warn('offline support unavailable:', error);
+    });
+  });
+}
 
 const drop = document.getElementById('drop');
 const picker = document.getElementById('picker');
