@@ -208,3 +208,10 @@ Follows the fleet: `AGENTS.md` is the onboarding doc, the AI-assistance disclaim
 top of `README.md`, and the "verified vs assumed" split above is the part to keep honest as the
 project grows. Sample show files are client data — they belong in `patchferret-research`, never
 here. The one fixture in `tests/fixtures/` is from a public repository and is safe to ship.
+
+## Notes
+
+`docs/NOTES.md` carries this repo's working notes — current status, decisions
+already made, and the traps that have actually bitten. Read it before changing
+anything non-obvious. Cross-cutting fleet knowledge lives in
+[fleet-notes](https://github.com/stoatworks-labs/fleet-notes).
