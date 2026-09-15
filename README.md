@@ -27,6 +27,10 @@ development.
 Runs in the browser or on the command line. The browser build parses and renders entirely in
 WebAssembly, so **a show file never leaves the machine** — there is no upload and no server.
 
+![PatchFerret with the repo's X32 fixture loaded: the show identified, its slots, strips and outputs counted, four documents to download, and the conversion-fidelity notes](docs/screenshots/patchferret.png)
+
+<sub>The hosted tool with the repo's own X32 fixture (`tests/fixtures/x32-soundboard.scn`) loaded: the show identified as a Behringer X32 / Midas M32 scene, its 32 input slots, 80 strips and 42 outputs counted, the four documents it produces ready to download, and the conversion-fidelity list naming the lines of the file it did not model. Parsed in the browser; nothing was uploaded.</sub>
+
 ## What it does today
 
 ```
