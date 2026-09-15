@@ -6,6 +6,10 @@ list, a specification sheet and a wiring topology diagram, as PDFs.
 Runs in the browser or on the command line. **The browser build parses and renders entirely in
 WebAssembly, so a show file never leaves the machine** — there is no upload and no server.
 
+![The hosted tool with the repo's own X32 fixture loaded: the show identified as a Behringer X32 / Midas M32 scene, its 32 input slots, 80 strips and 42 output…](screenshots/patchferret.png)
+
+*The hosted tool with the repo's own X32 fixture loaded: the show identified as a Behringer X32 / Midas M32 scene, its 32 input slots, 80 strips and 42 outputs counted, the four documents it produces ready to download, and the conversion-fidelity list naming the lines of the file it did not model. Parsed in the browser; nothing was uploaded.*
+
 > **Before you rely on this:** the X32 adapter is written against a real 2,104-line scene file
 > saved by an actual console and is asserted against it in CI. **No output has ever been loaded
 > back into a console**, and **no conversion between consoles exists yet.**
