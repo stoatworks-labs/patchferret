@@ -53,9 +53,35 @@ jobs:
           fi
           echo "token present - ok"
 
-      # No build step: this repo has no package.json. The site is committed at
-      # web/ and wrangler uploads it as-is, so the only thing standing between
-      # the repo and the edge is the smoke-check below.
+      # The page and its loader are committed at web/, but the core they load is
+      # Rust compiled to wasm32 and gitignored — exactly the artefact
+      # wrangler.toml warns a fresh clone must build first. Until 2026-09-15
+      # this job had no build step at all, so every Actions deploy since it
+      # took over from the laptop shipped a page whose core 404'd, and the
+      # smoke-check below passed because the page reports that failure in its
+      # own DOM rather than throwing. Same toolchain steps as ci.yml's wasm job.
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build the WASM core
+        run: |
+          set -euo pipefail
+          ./scripts/build-web.sh
+          # A missing or empty file is what this job used to ship. The magic
+          # number check is what stops a stray text file passing as the core.
+          test -s web/patchferret.wasm
+          magic=$(head -c 4 web/patchferret.wasm | od -An -tx1 | tr -d ' \n')
+          if [ "$magic" != "0061736d" ]; then
+            echo "::error::web/patchferret.wasm does not start with the wasm magic number (got $magic)"
+            exit 1
+          fi
+          echo "core built: $(wc -c < web/patchferret.wasm | tr -d ' ') bytes"
+
+      # With the core in place the smoke-check exercises the real load path: the
+      # page fetches ./patchferret.wasm from the served directory, so a broken
+      # core now fails here instead of on the live host.
 
       - name: Smoke-check the site
         uses: stoatworks-labs/smoke-check@v1
@@ -112,4 +138,25 @@ jobs:
           echo "::error::build's <head>. The upload succeeded, so this is the edge"
           echo "::error::serving something else — check the Worker's routes, and that"
           echo "::error::patchferret is what the custom domain actually points at."
+          exit 1
+
+      # The <head> hash says the page landed; this says the core did. It is the
+      # check that would have caught the missing build step on the first deploy.
+      - name: Check the live site is serving the core
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3 4 5; do
+            code=$(curl -sS -o /tmp/core.wasm -w '%{http_code}' --max-time 60 \
+                   "https://patchferret.stoatworks-labs.com/patchferret.wasm" || true)
+            magic=$(head -c 4 /tmp/core.wasm 2>/dev/null | od -An -tx1 | tr -d ' \n' || true)
+            if [ "$code" = "200" ] && [ "$magic" = "0061736d" ]; then
+              echo "live core is a wasm module, $(wc -c < /tmp/core.wasm | tr -d ' ') bytes (attempt $attempt)"
+              exit 0
+            fi
+            echo "not there yet: HTTP $code, magic '$magic' — retrying in 10s (attempt $attempt)"
+            sleep 10
+          done
+          echo "::error::The page deployed but https://patchferret.stoatworks-labs.com/patchferret.wasm"
+          echo "::error::is not a wasm module. The core is what the page loads first; without it"
+          echo "::error::every visitor sees 'core failed to load'."
           exit 1
