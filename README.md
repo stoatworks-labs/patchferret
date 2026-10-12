@@ -31,7 +31,7 @@ show file  →  format adapter  →  PFX model  →  ├─ patch list PDF
 
 | Console | File | Status |
 |---|---|---|
-| Behringer X32 / Midas M32 / X-Air | `.scn` | **Supported** — X-Air not yet tested |
+| Behringer X32 / Midas M32 / X-Air | `.scn` | **Supported** on X32 / M32. An X-Air file opens through the same adapter, but none has ever been tested and the I/O differs, so it's read as an X32 and may be quietly wrong |
 | Yamaha DM3 / DM7 / TF | `.dm3s` `.tfs` `.dm7s` (+ presets) | **Supported** — names and input patch; head amps and sends not yet |
 | Yamaha CL / QL | `.CLF` | **Supported** — input patch and channel names |
 | Allen & Heath Avantis / dLive | `.tar.gz` | **Supported** — input patch and strip inventory; names and preamps not yet |
