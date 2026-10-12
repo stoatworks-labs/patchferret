@@ -175,7 +175,7 @@ offline editors, and the adapters are checked against those exact files (gated b
 - Console profiles in `profile.rs` are transcribed from published specifications.
 - The X-Air variants share the `.scn` dialect closely enough. The adapter claims them; only
   full-size X32 files have been tested.
-- Everything about Yamaha, Allen & Heath, DiGiCo and Avid formats. No adapter exists.
+- Everything about DiGiCo and Avid formats. No adapter exists for them yet.
 
 **Explicitly not built:** writing show files, converting between consoles, and conforming to a
 target profile. `ConsoleProfile` exists to make the third tractable but nothing consumes it yet.

@@ -28,7 +28,7 @@ WebAssembly, so a show file never leaves the machine. There's no upload and no s
 
 | Console | File | Status |
 |---|---|---|
-| Behringer X32 / Midas M32 / X-Air | `.scn` | **Supported** |
+| Behringer X32 / Midas M32 / X-Air | `.scn` | **Supported** — X-Air not yet tested |
 | Yamaha DM3 / DM7 / TF | `.dm3s` `.tfs` `.dm7s` | **Supported** — names and input patch; head amps and sends not yet |
 | Yamaha CL / QL | `.CLF` | **Supported** — input patch and channel names |
 | Allen & Heath Avantis / dLive | `.tar.gz` | **Supported** — input patch and strip inventory; names and preamps not yet |

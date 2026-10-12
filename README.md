@@ -4,8 +4,8 @@
 > (Anthropic), directed and reviewed by a human author. The X32 adapter is tested in CI against
 > a real scene file saved by an actual console, and the generated PDFs are produced and checked
 > by eye. **No output has ever been loaded back into a console**, no conversion between consoles
-> exists yet, and every format other than the X32 `.scn` is unimplemented. The per-format
-> details are under What it does today, below.
+> exists yet, and it can't read DiGiCo or Avid VENUE files. The per-format details are under
+> What it does today, below.
 
 PatchFerret turns a mixing console show file into paperwork an engineer can actually use: a
 patch list, a specification sheet and a wiring topology diagram, as PDFs.
@@ -31,7 +31,7 @@ show file  →  format adapter  →  PFX model  →  ├─ patch list PDF
 
 | Console | File | Status |
 |---|---|---|
-| Behringer X32 / Midas M32 / X-Air | `.scn` | **Supported** |
+| Behringer X32 / Midas M32 / X-Air | `.scn` | **Supported** — X-Air not yet tested |
 | Yamaha DM3 / DM7 / TF | `.dm3s` `.tfs` `.dm7s` (+ presets) | **Supported** — names and input patch; head amps and sends not yet |
 | Yamaha CL / QL | `.CLF` | **Supported** — input patch and channel names |
 | Allen & Heath Avantis / dLive | `.tar.gz` | **Supported** — input patch and strip inventory; names and preamps not yet |
@@ -41,7 +41,7 @@ show file  →  format adapter  →  PFX model  →  ├─ patch list PDF
 How far each adapter has been checked:
 
 - **X32.** Written against a real 2,104-line scene file saved by an actual console, and
-  asserted against it in CI. There are 90 tests across the workspace, and 17 of them cover the
+  asserted against it in CI. There are 153 tests across the workspace, and 17 of them cover the
   X32 adapter: the connector→slot→channel composition, the head-amp index split across the
   local and both AES50 links, and the output-source enumeration. The X32 signal-source
   enumerations come from community documentation and are corroborated against real files,
