@@ -1,35 +1,24 @@
 # PatchFerret
 
 > **AI-assisted project.** This codebase was created with [Claude Code](https://claude.com/claude-code)
-> (Anthropic), directed and reviewed by a human author. The Behringer X32 adapter is written
-> against a real 2,104-line scene file saved by an actual console and is asserted against it in
-> CI — 90 tests across the workspace, of which 17 cover the X32 adapter: the
-> connector→slot→channel composition, the head-amp index split across the local and both AES50
-> links, and the output-source enumeration. The generated PDFs are
-> produced and visually inspected. **No output has ever been loaded back into a console**, no
-> conversion between consoles exists yet, and every format other than the X32 `.scn` is
-> unimplemented. The CL/QL and SQ adapters were built from controlled diffs in the manufacturers'
-> own offline editors and are checked against those files; the CL/QL patch table is found at an
-> absolute offset established on a single QL5 and is validated before use rather than trusted.
-> The Yamaha MMS adapter is checked against the 41 factory scenes shipped inside DM3
-> and TF Editor, but its **patch-source encoding has never been confirmed against a console's
-> patch screen**, and on TF no connector resolves at all — the tool says so rather than
-> guessing. The X32 signal-source enumerations are likewise derived from community documentation
-> and corroborated against real files, **not** from a running desk — see
-> [Provenance](#provenance-of-the-x32-enumerations).
+> (Anthropic), directed and reviewed by a human author. The X32 adapter is tested in CI against
+> a real scene file saved by an actual console, and the generated PDFs are produced and checked
+> by eye. **No output has ever been loaded back into a console**, no conversion between consoles
+> exists yet, and every format other than the X32 `.scn` is unimplemented. The per-format
+> details are under What it does today, below.
 
-Turn a mixing console show file into documentation an engineer can actually use: a patch list,
-a specification sheet and a wiring topology diagram, as PDFs.
+PatchFerret turns a mixing console show file into paperwork an engineer can actually use: a
+patch list, a specification sheet and a wiring topology diagram, as PDFs.
 
-**Try it: <https://patchferret.stoatworks-labs.com>** — an early preview, and still very much in
-development.
+**Try it: <https://patchferret.stoatworks-labs.com>**. It's an early preview, and still very
+much in development.
 
-Runs in the browser or on the command line. The browser build parses and renders entirely in
-WebAssembly, so **a show file never leaves the machine** — there is no upload and no server.
+It runs in the browser or on the command line. The browser build parses and renders entirely
+in WebAssembly, so a show file never leaves the machine. There's no upload and no server.
 
 ![PatchFerret with the repo's X32 fixture loaded: the show identified, its slots, strips and outputs counted, four documents to download, and the conversion-fidelity notes](docs/screenshots/patchferret.png)
 
-<sub>The hosted tool with the repo's own X32 fixture (`tests/fixtures/x32-soundboard.scn`) loaded: the show identified as a Behringer X32 / Midas M32 scene, its 32 input slots, 80 strips and 42 outputs counted, the four documents it produces ready to download, and the conversion-fidelity list naming the lines of the file it did not model. Parsed in the browser; nothing was uploaded.</sub>
+<sub>The hosted tool with the repo's own X32 fixture (`tests/fixtures/x32-soundboard.scn`) loaded. It's identified the show as a Behringer X32 / Midas M32 scene, counted its 32 input slots, 80 strips and 42 outputs, and lined up the four documents it makes ready to download, along with the conversion-fidelity list naming the lines of the file it didn't model. Parsed in the browser, and nothing was uploaded.</sub>
 
 ## What it does today
 
@@ -49,9 +38,25 @@ show file  →  format adapter  →  PFX model  →  ├─ patch list PDF
 | Allen & Heath SQ | `NVDATA.DAT` | **Supported** — input patch; names and socket *class* not yet identified |
 | DiGiCo, Avid VENUE | — | Planned |
 
-Format research for the unimplemented consoles lives in the private `patchferret-research`
-repository, along with sample show files (which are client data and do not belong in a public
-repo).
+How far each adapter has been checked:
+
+- **X32.** Written against a real 2,104-line scene file saved by an actual console, and
+  asserted against it in CI. There are 90 tests across the workspace, and 17 of them cover the
+  X32 adapter: the connector→slot→channel composition, the head-amp index split across the
+  local and both AES50 links, and the output-source enumeration. The X32 signal-source
+  enumerations come from community documentation and are corroborated against real files,
+  **not** from a running desk; see [Provenance](#provenance-of-the-x32-enumerations).
+- **CL/QL and SQ.** Built from controlled diffs in the manufacturers' own offline editors, and
+  checked against those files. The CL/QL patch table is found at an absolute offset
+  established on a single QL5, and it's validated before use rather than trusted.
+- **Yamaha MMS.** Checked against the 41 factory scenes shipped inside DM3 and
+  TF Editor, but its **patch-source encoding has never been confirmed against a console's
+  patch screen**, and on TF no connector resolves at all. The tool tells you so rather than
+  guessing.
+
+Format research for the consoles it can't read yet lives in the private `patchferret-research`
+repository, along with sample show files, which are client data and don't belong in a public
+repo.
 
 ## Use it
 
@@ -64,21 +69,21 @@ cargo build --release
 ./target/release/patchferret xml    myshow.scn -o myshow.pfx.xml
 ```
 
-`info` prints a summary and, importantly, the **fidelity list** — everything the adapter read
-but could not carry into the model, and which would therefore be lost in a conversion.
+`info` prints a summary and, more importantly, the **fidelity list**: everything the adapter
+read but couldn't carry into the model, which would therefore be lost in a conversion.
 
 ### The report header
 
-Reports carry a header with your logo, the event, venue, engineer and so on. **None of that is
-in a show file** — a console stores a mixer state, not the job it was built for — so it comes
-from a job sheet you supply:
+Reports carry a header with your logo, the event, the venue, the engineer and so on. None of
+that is in a show file (a console stores a mixer state, not the job it was built for), so it
+comes from a job sheet you supply:
 
 ```bash
 patchferret job-template -o job.txt   # a starting point
 patchferret report myshow.scn -j job.txt -o ./docs
 ```
 
-The sheet is `key: value` lines, and **any key it does not recognise becomes an extra header
+The sheet is `key: value` lines, and **any key it doesn't recognise becomes an extra header
 field**, so "Truck call" or "Rider rev" work without the tool knowing about them:
 
 ```
@@ -92,10 +97,11 @@ Truck call: 06:00
 logo: ./logo.jpg
 ```
 
-The browser version has the same fields as a form, and accepts **any image** for the logo —
-it converts on a canvas before handing the bytes over. The CLI takes JPEG, or PNG without
-transparency; embedding a transparent PNG would mean decoding pixels, which the dependency-free
-PDF writer deliberately does not do. It says so rather than dropping the logo silently.
+The browser version has the same fields as a form and accepts any image for the logo,
+converting it on a canvas before handing the bytes over. The CLI takes JPEG, or PNG without
+transparency. Embedding a transparent PNG would mean decoding pixels, which the
+dependency-free PDF writer doesn't do on purpose, and it tells you so rather than silently
+dropping the logo.
 
 ### Browser
 
@@ -105,7 +111,7 @@ rustup target add wasm32-unknown-unknown
 python3 -m http.server 8731 --directory web
 ```
 
-Then open <http://localhost:8731>. Module scripts and WASM will not load from `file://`, so it
+Then open <http://localhost:8731>. Module scripts and WASM won't load from `file://`, so it
 has to be served over HTTP.
 
 ## Why the patch list is not obvious
@@ -113,60 +119,61 @@ has to be served over HTTP.
 On an X32, getting from an XLR to a fader takes three hops, and all three have to be composed:
 
 1. `/config/routing/IN` maps blocks of **eight physical connectors** onto the 32 **input slots**.
-2. `/ch/NN/config` selects which **input slot** feeds channel `NN` — a free mapping.
+2. `/ch/NN/config` selects which **input slot** feeds channel `NN` (a free mapping).
 3. `/headamp/NNN` holds the gain for a **connector**, in a flat index across local and both
    AES50 links.
 
-Assuming channel *N* is fed by XLR *N* produces a confident and wrong patch list. In the test
-fixture, slots 25–32 are AES50-**B** connectors 1–8 while channels 25–32 carry them, and six
-channels reach no connector at all. PatchFerret composes the chain and marks the dead rows.
+Assume channel *N* is fed by XLR *N* and you get a patch list that's confident and wrong. In
+the test fixture, slots 25–32 are AES50-**B** connectors 1–8 while channels 25–32 carry them,
+and six channels reach no connector at all. PatchFerret composes the chain and marks the dead
+rows.
 
 ## The PFX model
 
-`patchferret-model` defines a console-neutral show model and its XML serialisation. The design
-rule is that the model is **lossy in a declared way**: anything an adapter understood but the
-model cannot express becomes a `Diagnostic`, which the spec sheet prints. A show that converts
-with no diagnostics is one we can claim to have fully understood; anything else says so.
+`patchferret-model` defines a console-neutral show model and its XML serialisation. The rule
+is that the model is **lossy in a declared way**: anything an adapter understood but the model
+can't express becomes a `Diagnostic`, which the spec sheet prints. A show that converts with no
+diagnostics is one I can claim to have fully understood, and anything else says so.
 
-Two choices worth knowing:
+Two choices worth knowing about:
 
-- **Head amps hang off the socket, not the channel.** On a shared stage box the gain belongs to
-  the connector and every console listening to it shares that gain. Modelling it per-channel is
-  the standard way to produce a patch list that lies about gain sharing.
-- **The input-slot indirection is preserved.** Resolving it away at parse time would make the
-  connector column a guess and would make re-patching impossible to express later.
+- **Head amps hang off the socket, not the channel.** On a shared stage box the gain belongs
+  to the connector, and every console listening to it shares that gain. Modelling it
+  per-channel is the usual way to end up with a patch list that lies about gain sharing.
+- **The input-slot indirection is preserved.** Resolving it away at parse time would turn the
+  connector column into a guess and make re-patching impossible to express later.
 
-`ConsoleProfile` describes what a desk *has* — channel counts, bus counts, EQ bands, physical
-I/O. It is the prerequisite for the conform work below, and is populated now so the shape is
-fixed before adapters depend on it.
+`ConsoleProfile` describes what a desk *has*: channel counts, bus counts, EQ bands, physical
+I/O. The conform work below needs it, and it's populated now so its shape is settled before
+adapters depend on it.
 
 ## Provenance of the X32 enumerations
 
-The signal-source numbering is not published by the vendor. It is derived from community
-documentation and corroborated against real scene files. Two internal checks support it, and
+The vendor doesn't publish the signal-source numbering. It's derived from community
+documentation and corroborated against real scene files. Two internal checks back it up, and
 both are asserted in CI:
 
-- No value in the decoded range resolves to a matrix above 6. The X32 has exactly six, so the
-  competing "1–16 are the mix buses" reading is ruled out — it would require matrix 7 and 8.
+- No value in the decoded range resolves to a matrix above 6. The X32 has six, so the
+  competing "1–16 are the mix buses" reading is ruled out, since it would need matrix 7 and 8.
 - `/outputs/p16/01 26 <-EQ` decodes to "direct out of channel 1, pre-EQ", which is what an
   Ultranet port 1 conventionally carries.
 
-Every output row in the test fixture decodes cleanly, which is asserted as a test. Values
-outside the mapped ranges are reported as diagnostics rather than guessed.
+Every output row in the test fixture decodes cleanly, and a test asserts that. Values outside
+the mapped ranges are reported as diagnostics rather than guessed.
 
 ## Not built yet
 
 The longer-term goals, in dependency order:
 
-1. **Editing the patch** — re-assign connector→channel and write the show file back out. The
+1. **Editing the patch**: re-assign connector→channel and write the show file back out. The
    model already keeps the slot indirection this needs; no adapter can write yet.
-2. **Console-to-console conversion** — read one format, write another via PFX.
-3. **Conform** — reconcile a show against a target `ConsoleProfile` and report what does not
+2. **Console-to-console conversion**: read one format, write another via PFX.
+3. **Conform**: reconcile a show against a target `ConsoleProfile` and report what doesn't
    fit, with intelligent mapping where a straight copy is impossible.
 
-Each of these needs a *writing* adapter, which is strictly harder than reading, and needs
-hardware to verify against. None of it should be trusted until a converted show has been loaded
-into a real console.
+Each of these needs a *writing* adapter, which is a good deal harder than reading, and needs
+hardware to check against. Don't trust any of it until a converted show has been loaded into a
+real console.
 
 ## Layout
 

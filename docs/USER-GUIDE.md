@@ -1,24 +1,24 @@
 # PatchFerret user guide
 
-**Turn a mixing console show file into documentation an engineer can actually use** — a patch
+PatchFerret turns a mixing console show file into paperwork an engineer can actually use: a patch
 list, a specification sheet and a wiring topology diagram, as PDFs.
 
-Runs in the browser or on the command line. **The browser build parses and renders entirely in
-WebAssembly, so a show file never leaves the machine** — there is no upload and no server.
+It runs in the browser or on the command line. The browser build parses and renders entirely in
+WebAssembly, so a show file never leaves the machine. There's no upload and no server.
 
 ![The hosted tool with the repo's own X32 fixture loaded: the show identified as a Behringer X32 / Midas M32 scene, its 32 input slots, 80 strips and 42 output…](screenshots/patchferret.png)
 
-*The hosted tool with the repo's own X32 fixture loaded: the show identified as a Behringer X32 / Midas M32 scene, its 32 input slots, 80 strips and 42 outputs counted, the four documents it produces ready to download, and the conversion-fidelity list naming the lines of the file it did not model. Parsed in the browser; nothing was uploaded.*
+*The hosted tool with the repo's own X32 fixture loaded. It's identified the show as a Behringer X32 / Midas M32 scene, counted its 32 input slots, 80 strips and 42 outputs, and lined up the four documents it makes ready to download, along with the conversion-fidelity list naming the lines of the file it didn't model. Parsed in the browser, and nothing was uploaded.*
 
 > **Before you rely on this:** the X32 adapter is written against a real 2,104-line scene file
 > saved by an actual console and is asserted against it in CI. **No output has ever been loaded
 > back into a console**, and **no conversion between consoles exists yet.**
 >
-> Per-format caveats matter here and are in the table below. The Yamaha MMS adapter's
-> **patch-source encoding has never been confirmed against a console's patch screen**, and on TF no
-> connector resolves at all — **the tool says so rather than guessing.** The X32 signal-source
-> enumerations are derived from community documentation and corroborated against real files, not
-> from a running desk.
+> The per-format caveats matter here, and they're in the table below. The Yamaha MMS adapter's
+> **patch-source encoding has never been confirmed against a console's patch screen**, and on TF
+> no connector resolves at all; the tool tells you so rather than guessing. The X32
+> signal-source enumerations are derived from community documentation and corroborated against
+> real files, not from a running desk.
 >
 > This codebase was created with AI assistance, directed and reviewed by a human author.
 
@@ -50,8 +50,8 @@ show file  →  format adapter  →  PFX model  →  ├─ patch list PDF
 patchferret info myshow.scn
 ```
 
-It prints a summary and, importantly, **the fidelity list — everything the adapter read but could
-not carry into the model**, and which would therefore be lost in a conversion.
+It prints a summary and, more importantly, **the fidelity list**: everything the adapter read
+but couldn't carry into the model, which would therefore be lost in a conversion.
 
 That list is the honest measure of how much of your show this tool understands. Read it before
 you hand a PDF to anybody.
@@ -60,35 +60,36 @@ you hand a PDF to anybody.
 
 ## Why the patch list is not obvious
 
-On an X32, getting from an XLR to a fader takes **three hops, and all three have to be composed**:
+On an X32, getting from an XLR to a fader takes three hops, and all three have to be composed:
 
 1. The routing block maps blocks of **eight physical connectors** onto the 32 **input slots**.
-2. The channel config selects which **input slot** feeds each channel — a **free** mapping.
+2. The channel config selects which **input slot** feeds each channel, and that's a free
+   mapping.
 3. The head-amp table holds the gain for a **connector**, in a flat index across local and both
    AES50 links.
 
-**Assuming channel *N* is fed by XLR *N* produces a confident and wrong patch list.** In the test
-fixture, slots 25–32 are AES50-**B** connectors 1–8 while channels 25–32 carry them, and **six
-channels reach no connector at all.**
+Assume channel *N* is fed by XLR *N* and you get a patch list that's confident and wrong. In
+the test fixture, slots 25–32 are AES50-B connectors 1–8 while channels 25–32 carry them, and
+six channels reach no connector at all.
 
-PatchFerret composes the chain and **marks the dead rows** rather than inventing a connector for
+PatchFerret composes the chain and marks the dead rows rather than inventing a connector for
 them.
 
 ---
 
 ## The report header comes from you
 
-Reports carry a header with your logo, the event, venue, engineer and so on.
+Reports carry a header with your logo, the event, the venue, the engineer and so on.
 
-**None of that is in a show file** — a console stores a mixer state, not the job it was built for
-— so it comes from a job sheet you supply:
+None of that is in a show file (a console stores a mixer state, not the job it was built for),
+so it comes from a job sheet you supply:
 
 ```bash
 patchferret job-template -o job.txt
 patchferret report myshow.scn -j job.txt -o ./docs
 ```
 
-The sheet is `key: value` lines, and **any key it does not recognise becomes an extra header
+The sheet is `key: value` lines, and **any key it doesn't recognise becomes an extra header
 field**, so "Truck call" or "Rider rev" work without the tool knowing about them:
 
 ```
@@ -99,16 +100,16 @@ Truck call: 06:00
 logo: ./logo.jpg
 ```
 
-The browser version has the same fields as a form and **accepts any image** for the logo — it
-converts on a canvas before handing the bytes over. The CLI takes JPEG, or PNG without
-transparency; embedding a transparent PNG would mean decoding pixels, which the dependency-free
-PDF writer deliberately does not do. **It says so rather than dropping the logo silently.**
+The browser version has the same fields as a form and accepts any image for the logo,
+converting it on a canvas before handing the bytes over. The CLI takes JPEG, or PNG without
+transparency. Embedding a transparent PNG would mean decoding pixels, which the dependency-free
+PDF writer doesn't do on purpose, and it tells you so rather than silently dropping the logo.
 
 ---
 
 ## In the browser
 
-Module scripts and WebAssembly **will not load from `file://`**, so the local build has to be
+Module scripts and WebAssembly **won't load from `file://`**, so the local build has to be
 served over HTTP. The hosted version needs nothing.
 
 ---
