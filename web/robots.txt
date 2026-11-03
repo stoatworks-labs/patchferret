@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://patchferret.stoatworks-labs.com/sitemap.xml

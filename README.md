@@ -16,6 +16,8 @@ much in development.
 It runs in the browser or on the command line. The browser build parses and renders entirely
 in WebAssembly, so a show file never leaves the machine. There's no upload and no server.
 
+There's more on [its page at stoatworks-labs.com](https://stoatworks-labs.com/web-tools/patchferret/), along with the [user guide](https://stoatworks-labs.com/software/patchferret/guide/) and [notes on running it on your own server](https://stoatworks-labs.com/web-tools/self-hosting/).
+
 ![PatchFerret with the repo's X32 fixture loaded: the show identified, its slots, strips and outputs counted, four documents to download, and the conversion-fidelity notes](docs/screenshots/patchferret.png)
 
 <sub>The hosted tool with the repo's own X32 fixture (`tests/fixtures/x32-soundboard.scn`) loaded. It's identified the show as a Behringer X32 / Midas M32 scene, counted its 32 input slots, 80 strips and 42 outputs, and lined up the four documents it makes ready to download, along with the conversion-fidelity list naming the lines of the file it didn't model. Parsed in the browser, and nothing was uploaded.</sub>

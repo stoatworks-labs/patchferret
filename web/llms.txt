@@ -1,0 +1,16 @@
+# PatchFerret
+
+> Console show file in, patch paperwork out
+
+Turns a mixing console's show file into paperwork an engineer can actually use: a patch list, a spec sheet and a wiring topology diagram, as PDFs. It runs in the browser or on the command line.
+
+It's a Stoatworks Labs web tool: free, and it runs in a web browser.
+
+## Links
+
+- [PatchFerret, the app](https://patchferret.stoatworks-labs.com/): runs in the browser, free
+- [Project page](https://stoatworks-labs.com/software/patchferret/)
+- [Web tool page](https://stoatworks-labs.com/web-tools/patchferret/)
+- [User guide](https://stoatworks-labs.com/software/patchferret/guide/)
+- [Source on GitHub](https://github.com/stoatworks-labs/patchferret)
+- [Self-hosting](https://stoatworks-labs.com/web-tools/self-hosting/): run it on your own server
