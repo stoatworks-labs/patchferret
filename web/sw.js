@@ -37,6 +37,8 @@ const SHELL = [
   '/stoatworks-theme.css',
   '/manifest.webmanifest',
   '/icon.svg',
+  '/about.js',
+  '/about-data.js',
 ];
 
 self.addEventListener('install', (event) => {
