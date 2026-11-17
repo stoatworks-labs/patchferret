@@ -34,6 +34,7 @@ const SHELL = [
   '/',
   '/patchferret.js',
   '/patchferret.wasm',
+  '/stoatworks-theme.css',
   '/manifest.webmanifest',
   '/icon.svg',
 ];
